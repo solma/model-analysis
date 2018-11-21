@@ -117,7 +117,7 @@ class EvalSharedModel(
 
   def __new__(
       cls,
-      model_path,
+      model_path = None,
       add_metrics_callbacks = None,
       example_weight_key = None,
       shared_handle = None):
