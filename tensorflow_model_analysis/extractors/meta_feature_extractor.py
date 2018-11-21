@@ -101,8 +101,8 @@ def _ExtractMetaFeature(  # pylint: disable=invalid-name
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def ExtractMetaFeature(  # pylint: disable=invalid-name
     examples_and_extracts,
     new_features_fn

@@ -59,8 +59,8 @@ def SliceKeyExtractor(
       ptransform=ExtractSliceKeys(slice_spec, materialize))
 
 
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 class _ExtractSliceKeys(beam.DoFn):
   """A DoFn that extracts slice keys that apply per example."""
 
@@ -98,8 +98,8 @@ class _ExtractSliceKeys(beam.DoFn):
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def ExtractSliceKeys(examples_and_extracts,
                      slice_spec,
                      materialize = True):

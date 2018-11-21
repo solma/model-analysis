@@ -112,8 +112,8 @@ def _MaterializeFeatures(
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def ExtractFeatures(
     examples_and_extracts):
   """Builds MaterializedColumn extracts from FPL created in evaluate.Predict().

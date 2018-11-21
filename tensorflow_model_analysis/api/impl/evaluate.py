@@ -37,7 +37,7 @@ _METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def ToExampleAndExtracts(examples):
   """Converts an example to ExampleAndExtracts with empty extracts."""
   return (examples
@@ -46,8 +46,8 @@ def ToExampleAndExtracts(examples):
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def Extract(examples_and_extracts,
             extractors):
   """Performs Extractions serially in provided order."""
@@ -60,7 +60,7 @@ def Extract(examples_and_extracts,
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
 # No typehint for output type, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
 def Evaluate(  # pylint: disable=invalid-name
@@ -110,7 +110,7 @@ def Evaluate(  # pylint: disable=invalid-name
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def BuildDiagnosticTable(  # pylint: disable=invalid-name
     examples,
     eval_shared_model,

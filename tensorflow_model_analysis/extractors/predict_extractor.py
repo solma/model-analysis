@@ -61,7 +61,7 @@ def PredictExtractor(eval_shared_model,
 
 
 @beam.typehints.with_input_types(beam.typehints.List[types.ExampleAndExtracts])
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 class _TFMAPredictionDoFn(dofn.EvalSavedModelDoFn):
   """A DoFn that loads the model and predicts."""
 
@@ -89,8 +89,8 @@ class _TFMAPredictionDoFn(dofn.EvalSavedModelDoFn):
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def TFMAPredict(  # pylint: disable=invalid-name
     examples_and_extracts,
     eval_shared_model,

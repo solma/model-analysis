@@ -36,7 +36,7 @@ _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
 _METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 
-@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
 )
@@ -71,7 +71,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_input_types(types.ExampleAndExtracts)
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
 )  # pylint: disable=invalid-name

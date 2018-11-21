@@ -28,7 +28,7 @@ from tensorflow_model_analysis.types_compat import List, Optional
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(beam.typehints.Any)
+@beam.typehints.with_output_types(types.ExampleAndExtracts)
 def BuildDiagnosticTable(  # pylint: disable=invalid-name
     examples,
     eval_shared_model,
