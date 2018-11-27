@@ -266,9 +266,14 @@ class _ExtractOutputDoFn(dofn.EvalSavedModelDoFn):
     slicing_metrics = {}
     plots = {}
     for k, v in result.items():
-      if k in metric_keys.PLOT_KEYS:
-        plots[k] = v
-      else:
+      plot = False
+      # We need to check for substrings here because metrics may have prefixes
+      # based on multiple labels and/or heads.
+      for subkey in metric_keys.PLOT_KEYS:
+        if k.endswith(subkey):
+          plots[k] = v
+          plot = True
+      if not plot:
         slicing_metrics[k] = v
 
     yield (slice_key, slicing_metrics)

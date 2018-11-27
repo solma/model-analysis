@@ -39,6 +39,7 @@ from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_pr
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_estimator_extra_fields
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_regressor
+from tensorflow_model_analysis.eval_saved_model.example_trainers import multi_head
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
@@ -147,6 +148,31 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     self._runTest(examples, eval_export_dir, [
         post_export_metrics.example_count(),
         post_export_metrics.example_weight('age')
+    ], expected_values_dict)
+
+  def testPostExportMetricsWithTag(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = linear_classifier.simple_linear_classifier(
+        None, temp_eval_export_dir)
+    examples = [
+        self._makeExample(age=3.0, language='english', label=1.0),
+        self._makeExample(age=3.0, language='chinese', label=0.0),
+        self._makeExample(age=4.0, language='english', label=1.0),
+        self._makeExample(age=5.0, language='chinese', label=0.0)
+    ]
+    expected_values_dict = {
+        metric_keys.EXAMPLE_COUNT: 4.0,
+        metric_keys.EXAMPLE_WEIGHT: 15.0,
+        metric_keys.add_metric_prefix(
+            metric_keys.EXAMPLE_COUNT, 'my_tag'): 4.0,
+        metric_keys.add_metric_prefix(
+            metric_keys.EXAMPLE_WEIGHT, 'my_tag'): 15.0,
+    }
+    self._runTest(examples, eval_export_dir, [
+        post_export_metrics.example_count(),
+        post_export_metrics.example_weight('age'),
+        post_export_metrics.example_count(metric_tag='my_tag'),
+        post_export_metrics.example_weight('age', metric_tag='my_tag')
     ], expected_values_dict)
 
   def testPostExportMetricsDNNClassifier(self):
@@ -811,6 +837,88 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         examples,
         eval_export_dir, [confusion_matrix_at_thresholds_metric],
         custom_metrics_check=check_result)
+
+  def testMetricsWithMultiHead(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        multi_head.simple_multi_head(None, temp_eval_export_dir))
+
+    examples = [
+        self._makeExample(
+            age=3.0,
+            language='english',
+            english_label=1.0,
+            chinese_label=0.0,
+            other_label=0.0),
+        self._makeExample(
+            age=3.0,
+            language='chinese',
+            english_label=0.0,
+            chinese_label=1.0,
+            other_label=0.0),
+        self._makeExample(
+            age=4.0,
+            language='english',
+            english_label=1.0,
+            chinese_label=0.0,
+            other_label=0.0),
+        self._makeExample(
+            age=5.0,
+            language='chinese',
+            english_label=0.0,
+            chinese_label=1.0,
+            other_label=0.0),
+        self._makeExample(
+            age=6.0,
+            language='chinese',
+            english_label=0.0,
+            chinese_label=1.0,
+            other_label=0.0),
+    ]
+
+    def check_plot_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.CALIBRATION_PLOT_MATRICES,
+                                          'chinese_head'), value)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.CALIBRATION_PLOT_MATRICES,
+                                          'english_head'), value)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.CALIBRATION_PLOT_MATRICES,
+                                          'chinese_head'), value)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.CALIBRATION_PLOT_MATRICES,
+                                          'english_head'), value)
+        # We just check that the bucket sums look sane, since we don't know
+        # the exact predictions of the model.
+        buckets = value[metric_keys.add_metric_prefix(
+            metric_keys.CALIBRATION_PLOT_MATRICES, 'chinese_head')]
+        bucket_sums = np.sum(buckets, axis=0)
+        self.assertAlmostEqual(bucket_sums[1], 3.0)  # label sum
+        self.assertAlmostEqual(bucket_sums[2], 5.0)  # weight sum
+        buckets = value[metric_keys.add_metric_prefix(
+            metric_keys.CALIBRATION_PLOT_MATRICES, 'english_head')]
+        bucket_sums = np.sum(buckets, axis=0)
+        self.assertAlmostEqual(bucket_sums[1], 2.0)  # label sum
+        self.assertAlmostEqual(bucket_sums[2], 5.0)  # weight sum
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [
+            post_export_metrics.calibration_plot_and_prediction_histogram(
+                target_prediction_keys=['chinese_head/logistic'],
+                labels_key='chinese_head'),
+            post_export_metrics.calibration_plot_and_prediction_histogram(
+                target_prediction_keys=['english_head/logistic'],
+                labels_key='english_head')
+        ],
+        custom_plots_check=check_plot_result)
 
   def testCalibrationPlotAndPredictionHistogramLinearClassifier(self):
     temp_eval_export_dir = self._getEvalExportDir()

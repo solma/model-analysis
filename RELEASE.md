@@ -32,6 +32,8 @@
 * We now support including your serving graph in the EvalSavedModel. You can
   do this by passing a `serving_input_receiver_fn` to `export_eval_savedmodel`
   or any of the TFMA Exporters.
+* We now support customizing prediction and label keys for
+  post_export_metrics.
 
 ## Bug fixes and other changes
 
