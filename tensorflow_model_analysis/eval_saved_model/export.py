@@ -48,7 +48,7 @@ def EvalInputReceiver(  # pylint: disable=invalid-name
     features,
     labels,
     receiver_tensors,
-    example_ref = None):
+    input_refs = None):
   """Returns an appropriate receiver for eval_input_receiver_fn.
 
     This is a wrapper around TensorFlow InputReceiver that explicitly adds
@@ -66,7 +66,7 @@ def EvalInputReceiver(  # pylint: disable=invalid-name
       'examples', which maps to the single input node that the receiver expects
       to be fed by default. Typically this is a placeholder expecting serialized
       `tf.Example` protos.
-    example_ref: Optional. A 1-D integer `Tensor` that is batch-aligned with
+    input_refs: Optional. A 1-D integer `Tensor` that is batch-aligned with
       `features` and `labels` which is an index into
       receiver_tensors['examples'] indicating where this slice of features /
       labels came from. If not provided, defaults to range(0,
@@ -99,18 +99,18 @@ def EvalInputReceiver(  # pylint: disable=invalid-name
     receiver = export_lib.UnsupervisedInputReceiver(
         features=wrapped_features, receiver_tensors=receiver_tensors)
 
-  if example_ref is None:
-    example_ref = tf.range(tf.size(receiver_tensors['examples']))
+  if input_refs is None:
+    input_refs = tf.range(tf.size(receiver_tensors['examples']))
   # Note that in the collection we store the unwrapped versions, because
   # we want to feed the unwrapped versions.
-  _add_tfma_collections(features, labels, example_ref)
+  _add_tfma_collections(features, labels, input_refs)
   return receiver
 
 
 def _add_tfma_collections(features,
                           labels,
                           example_ref):
-  """Add extra collections for features, labels, example_ref, version.
+  """Add extra collections for features, labels, input_refs, version.
 
   This should be called within the Graph that will be saved. Typical usage
   would be when features and labels have been parsed, i.e. in the

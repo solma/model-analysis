@@ -82,7 +82,7 @@ class _TFMAPredictionDoFn(dofn.EvalSavedModelDoFn):
     # Compute FeaturesPredictionsLabels for each serialized_example
     for fpl in self._eval_saved_model.predict_list(serialized_examples):
       element_copy = (
-          element[fpl.example_ref].create_copy_with_shallow_copy_of_extracts())
+          element[fpl.input_refs].create_copy_with_shallow_copy_of_extracts())
 
       element_copy.extracts[constants.FEATURES_PREDICTIONS_LABELS_KEY] = fpl
       yield element_copy

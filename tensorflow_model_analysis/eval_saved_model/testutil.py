@@ -138,7 +138,7 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
     """
     fpls = eval_saved_model.predict(raw_example_bytes)
     self.assertEqual(1, len(fpls))
-    self.assertEqual(0, fpls[0].example_ref)
+    self.assertEqual(0, fpls[0].input_refs)
     return fpls[0]
 
   def predict_injective_example_list(
@@ -160,6 +160,6 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
     # Check that each FPL corresponds to one example.
     self.assertSequenceEqual(
         range(0, len(raw_example_bytes_list)),
-        [fpl.example_ref for fpl in fpls])
+        [fpl.input_refs for fpl in fpls])
 
     return fpls

@@ -82,7 +82,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
         extracts={
             'fpl':
                 api_types.FeaturesPredictionsLabels(
-                    example_ref=0,
+                    input_refs=0,
                     features=features,
                     predictions=predictions,
                     labels=labels)

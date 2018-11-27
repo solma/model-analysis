@@ -69,7 +69,7 @@ def get_fpl_copy(example_and_extracts
       features=copy.copy(fpl_orig.features),
       labels=fpl_orig.labels,
       predictions=fpl_orig.predictions,
-      example_ref=fpl_orig.example_ref)
+      input_refs=fpl_orig.input_refs)
   return fpl_copy
 
 

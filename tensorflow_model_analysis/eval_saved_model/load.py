@@ -435,7 +435,7 @@ class EvalSavedModel(object):
         }
       result.append(
           api_types.FeaturesPredictionsLabels(
-              example_ref=example_ref,
+              input_refs=example_ref,
               features=features,
               predictions=predictions,
               labels=labels))

@@ -339,7 +339,7 @@ class IntegrationTest(testutil.TensorflowModelAnalysisTest):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = (
         fake_multi_examples_per_input_estimator
-        .bad_multi_examples_per_input_estimator_misaligned_example_ref(
+        .bad_multi_examples_per_input_estimator_misaligned_input_refs(
             None, temp_eval_export_dir))
 
     eval_saved_model = load.EvalSavedModel(eval_export_dir)
@@ -347,11 +347,11 @@ class IntegrationTest(testutil.TensorflowModelAnalysisTest):
                                  'example_ref should be batch-aligned'):
       eval_saved_model.predict_list(['1'])
 
-  def testPredictListOutOfRangeExampleRef(self):
+  def testPredictListOutOfRangeInputRefs(self):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = (
         fake_multi_examples_per_input_estimator
-        .bad_multi_examples_per_input_estimator_out_of_range_example_ref(
+        .bad_multi_examples_per_input_estimator_out_of_range_input_refs(
             None, temp_eval_export_dir))
 
     eval_saved_model = load.EvalSavedModel(eval_export_dir)
