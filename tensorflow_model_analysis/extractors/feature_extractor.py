@@ -17,6 +17,7 @@ from __future__ import division
 
 from __future__ import print_function
 
+import copy
 
 
 import apache_beam as beam
@@ -41,13 +42,12 @@ def FeatureExtractor():
 
 
 def _AugmentExtracts(fpl_dict,
-                     example_and_extracts):
-  """Augments the ExampleAndExtracts with FeaturesPredictionsLabels.
+                     extracts):
+  """Augments the Extracts with FeaturesPredictionsLabels.
 
   Args:
     fpl_dict: The dictionary returned by evaluate._Predict()
-    example_and_extracts: The ExampleAndExtracts to be augmented. This is
-      mutated in-place.
+    extracts: The Extracts to be augmented. This is mutated in-place.
 
   Raises:
     TypeError: If the FeaturesPredictionsLabels is corrupt.
@@ -56,15 +56,14 @@ def _AugmentExtracts(fpl_dict,
     val = val.get(encoding.NODE_SUFFIX)
 
     if isinstance(val, tf.SparseTensorValue):
-      example_and_extracts.extracts[name] = types.MaterializedColumn(
+      extracts[name] = types.MaterializedColumn(
           name=name, value=val.values[0:_MAX_SPARSE_FEATURES_PER_COLUMN])
 
     elif isinstance(val, np.ndarray):
       val = val[0]  # only support first dim for now.
       if not np.isscalar(val):
         val = val[0:_MAX_SPARSE_FEATURES_PER_COLUMN]
-      example_and_extracts.extracts[name] = types.MaterializedColumn(
-          name=name, value=val)
+      extracts[name] = types.MaterializedColumn(name=name, value=val)
 
     else:
       raise TypeError(
@@ -72,27 +71,26 @@ def _AugmentExtracts(fpl_dict,
           (name, val, type(val)))
 
 
-def _MaterializeFeatures(
-    example_and_extracts):
+def _MaterializeFeatures(extracts):
   """Converts FeaturesPredictionsLabels into MaterializedColumn in the extract.
 
-  It must be the case that evaluate._Predict() was called on the
-  ExampleAndExtracts before calling this function.
+  It must be the case that evaluate._Predict() was called on the Extracts before
+  calling this function.
 
   Args:
-    example_and_extracts: The ExampleAndExtracts to be augmented
+    extracts: The Extracts to be augmented
 
   Returns:
-    Returns an augmented ExampleAndExtracts (which is a shallow copy of
-    the original ExampleAndExtracts, so the original isn't mutated)
+    Returns an augmented Extracts (which is a shallow copy of the original
+    Extracts, so the original isn't mutated)
 
   Raises:
     RuntimeError: When _Predict() didn't populate the 'fpl' key.
   """
   # Make a a shallow copy, so we don't mutate the original.
-  result = example_and_extracts.create_copy_with_shallow_copy_of_extracts()
+  result = copy.copy(extracts)
 
-  fpl = result.extracts.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
+  fpl = result.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
   if not fpl:
     raise RuntimeError('FPL missing, Please ensure _Predict() was called.')
 
@@ -112,21 +110,20 @@ def _MaterializeFeatures(
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
 def ExtractFeatures(
-    examples_and_extracts):
+    extracts):
   """Builds MaterializedColumn extracts from FPL created in evaluate.Predict().
 
-  It must be the case that evaluate._Predict() was called on the
-  ExampleAndExtracts before calling this function.
+  It must be the case that evaluate._Predict() was called on the Extracts before
+  calling this function.
 
   Args:
-    examples_and_extracts: PCollection containing the ExampleAndExtracts that
-      will have MaterializedColumn added to its extracts.
+    extracts: PCollection containing the Extracts that will have
+      MaterializedColumn added to.
 
   Returns:
-    PCollection of ExampleAndExtracts
+    PCollection of Extracts
   """
-  return (examples_and_extracts
-          | 'MaterializeFeatures' >> beam.Map(_MaterializeFeatures))
+  return extracts | 'MaterializeFeatures' >> beam.Map(_MaterializeFeatures)

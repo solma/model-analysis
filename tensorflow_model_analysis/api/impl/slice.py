@@ -36,7 +36,7 @@ _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
 _METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
 )
@@ -51,7 +51,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
 
   def process(self, element
              ):
-    fpl = element.extracts.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
+    fpl = element.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
     if not fpl:
       raise RuntimeError('FPL missing, Please ensure Predict() was called.')
     if not isinstance(fpl, api_types.FeaturesPredictionsLabels):
@@ -59,7 +59,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
           'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: '
           '%s of type %s' % (str(fpl), type(fpl)))
 
-    slices = element.extracts.get(constants.SLICE_KEYS)
+    slices = element.get(constants.SLICE_KEYS_KEY)
 
     slice_count = 0
     for slice_key in slices:
@@ -71,7 +71,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
 )  # pylint: disable=invalid-name

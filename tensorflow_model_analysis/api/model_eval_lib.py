@@ -247,12 +247,12 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
       the data into. If None, defaults to the overall slice.
     desired_batch_size: Optional batch size for batching in Predict and
       Aggregate.
-    extractors: Optional list of Extractors to apply to ExampleAndExtracts. If
-      provided, the extracts MUST contain a FeaturesPredictionsLabels extract
-      with key 'fpl' and a list of SliceKeyType extracts with key 'slice_keys'.
-      Typically these will be added by calling the default_extractors function.
-      If no extractors are provided, default_extractors (non-materialized) will
-      be used.
+    extractors: Optional list of Extractors to apply to Extracts. If provided,
+      the extracts MUST contain a FeaturesPredictionsLabels extract with key
+      'fpl' and a list of SliceKeyType extracts with key 'slice_keys'. Typically
+      these will be added by calling the default_extractors function. If no
+      extractors are provided, default_extractors (non-materialized) will be
+      used.
 
   Raises:
     ValueError: If PredictExtractor or SliceKeyExtractor is not present in
@@ -270,7 +270,7 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
 
   metrics, plots = (
       examples
-      | 'ToExampleAndExtracts' >> evaluate.ToExampleAndExtracts()
+      | 'InputsToExtracts' >> evaluate.InputsToExtracts()
       | 'Extract' >> evaluate.Extract(extractors=extractors)
       | 'Evaluate' >> evaluate.Evaluate(
           eval_shared_model=eval_shared_model,

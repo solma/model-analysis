@@ -27,6 +27,7 @@ from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
 
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.contrib import model_eval_lib as contrib
 from tensorflow_model_analysis.eval_saved_model import testutil
@@ -87,7 +88,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
 
       def check_result(got):
         self.assertEqual(1, len(got), 'got: %s' % got)
-        _, extracts = got[0]
+        extracts = got[0]
 
         # Values of type MaterializedColumn are emitted to signal to
         # downstream sink components to output the data to file.
@@ -121,7 +122,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
             })
         self._assertMaterializedColumnsExist(materialized_dict, [
             'logits', 'probabilities', 'classes', 'logistic', 'class_ids',
-            'materialized_slice_keys'
+            constants.MATERIALIZED_SLICE_KEYS_KEY
         ])
 
       util.assert_that(result, check_result)
@@ -149,7 +150,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
 
       def check_result(got):
         self.assertEqual(1, len(got), 'got: %s' % got)
-        _, extracts = got[0]
+        extracts = got[0]
 
         # Values of type MaterializedColumn are emitted to signal to
         # downstream sink components to output the data to file.
@@ -158,9 +159,9 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
                                  if isinstance(v, types.MaterializedColumn))
         self._assertMaterializedColumns(
             materialized_dict, {
-                'materialized_slice_keys':
+                constants.MATERIALIZED_SLICE_KEYS_KEY:
                     types.MaterializedColumn(
-                        name='materialized_slice_keys',
+                        name=constants.MATERIALIZED_SLICE_KEYS_KEY,
                         value=[
                             b'age:3.0', b'age:3',
                             b'age_X_language:3.0_X_english'

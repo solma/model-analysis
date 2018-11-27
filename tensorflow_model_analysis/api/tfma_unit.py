@@ -255,7 +255,7 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
       metrics, _ = (
           pipeline
           | 'CreateExamples' >> beam.Create(serialized_examples)
-          | 'ToExampleAndExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
@@ -340,7 +340,7 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
 
     metrics, _ = (
         examples_pcollection
-        | 'ToExampleAndExtracts' >> evaluate.ToExampleAndExtracts()
+        | 'InputsToExtracts' >> evaluate.InputsToExtracts()
         | 'Extract' >> evaluate.Extract(extractors=extractors)
         | 'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
 

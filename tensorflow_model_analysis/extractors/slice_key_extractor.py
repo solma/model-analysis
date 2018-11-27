@@ -18,6 +18,7 @@ from __future__ import division
 
 from __future__ import print_function
 
+import copy
 
 
 import apache_beam as beam
@@ -35,14 +36,13 @@ def SliceKeyExtractor(
     materialize = True):
   """Creates an extractor for extracting slice keys.
 
-  The incoming ExampleAndExtracts must contain a FeaturesPredictionsLabels
-  extract keyed by 'fpl'. Typically this will be obtained by calling the
-  PredictExtractor.
+  The incoming Extracts must contain a FeaturesPredictionsLabels extract keyed
+  by 'fpl'. Typically this will be obtained by calling the PredictExtractor.
 
-  The extractor's PTransform yields a copy of the ExampleAndExtracts input with
-  an additional 'slice_keys' extract pointing at the list of SliceKeyType
-  values. If materialize is True then a materialized version of the slice keys
-  will be added under the key 'materialized_slice_keys'.
+  The extractor's PTransform yields a copy of the Extracts input with an
+  additional 'slice_keys' extract pointing at the list of SliceKeyType values.
+  If materialize is True then a materialized version of the slice keys will be
+  added under the key 'materialized_slice_keys'.
 
   Args:
     slice_spec: Optional list of SingleSliceSpec specifying the slices to slice
@@ -59,8 +59,8 @@ def SliceKeyExtractor(
       ptransform=ExtractSliceKeys(slice_spec, materialize))
 
 
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
 class _ExtractSliceKeys(beam.DoFn):
   """A DoFn that extracts slice keys that apply per example."""
 
@@ -69,9 +69,8 @@ class _ExtractSliceKeys(beam.DoFn):
     self._slice_spec = slice_spec
     self._materialize = materialize
 
-  def process(self, element
-             ):
-    fpl = element.extracts.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
+  def process(self, element):
+    fpl = element.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
     if not fpl:
       raise RuntimeError('FPL missing, Please ensure Predict() was called.')
     if not isinstance(fpl, api_types.FeaturesPredictionsLabels):
@@ -83,25 +82,24 @@ class _ExtractSliceKeys(beam.DoFn):
         slicer.get_slices_for_features_dict(features, self._slice_spec))
 
     # Make a a shallow copy, so we don't mutate the original.
-    element_copy = (element.create_copy_with_shallow_copy_of_extracts())
+    element_copy = copy.copy(element)
 
-    element_copy.extracts[constants.SLICE_KEYS] = slices
+    element_copy[constants.SLICE_KEYS_KEY] = slices
     # Add a list of stringified slice keys to be materialized to output table.
     if self._materialize:
-      element_copy.extracts[
-          constants.SLICE_KEYS_MATERIALIZED] = types.MaterializedColumn(
-              name=constants.SLICE_KEYS_MATERIALIZED,
-              value=(list(
-                  slicer.stringify_slice_key(x).encode('utf-8')
-                  for x in slices)))
+      element_copy[constants
+                   .MATERIALIZED_SLICE_KEYS_KEY] = types.MaterializedColumn(
+                       name=constants.MATERIALIZED_SLICE_KEYS_KEY,
+                       value=(list(
+                           slicer.stringify_slice_key(x).encode('utf-8')
+                           for x in slices)))
     return [element_copy]
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
-def ExtractSliceKeys(examples_and_extracts,
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
+def ExtractSliceKeys(extracts,
                      slice_spec,
                      materialize = True):
-  return examples_and_extracts | beam.ParDo(
-      _ExtractSliceKeys(slice_spec, materialize))
+  return extracts | beam.ParDo(_ExtractSliceKeys(slice_spec, materialize))

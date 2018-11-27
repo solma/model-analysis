@@ -55,11 +55,10 @@ def _set_feature_value(features,
   return features  # pytype: disable=bad-return-type
 
 
-def get_fpl_copy(example_and_extracts
-                ):
-  """Get a copy of the FPL in the extracts of example_and_extracts."""
-  fpl_orig = example_and_extracts.extracts.get(
-      constants.FEATURES_PREDICTIONS_LABELS_KEY)
+def get_fpl_copy(
+    extracts):
+  """Get a copy of the FPL in the extracts of extracts."""
+  fpl_orig = extracts.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
   if not fpl_orig:
     raise RuntimeError('FPL missing, Please ensure _Predict() was called.')
 
@@ -84,37 +83,36 @@ def update_fpl_features(fpl,
 
 
 def _ExtractMetaFeature(  # pylint: disable=invalid-name
-    example_and_extracts,
-    new_features_fn
-):
+    extracts,
+    new_features_fn):
   """Augments FPL dict with new feature(s)."""
   # Create a new feature from existing ones.
-  fpl_copy = get_fpl_copy(example_and_extracts)
+  fpl_copy = get_fpl_copy(extracts)
   new_features = new_features_fn(fpl_copy)
 
   # Add the new features to the existing ones.
   update_fpl_features(fpl_copy, new_features)
 
-  result = example_and_extracts.create_copy_with_shallow_copy_of_extracts()
-  result.extracts['fpl'] = fpl_copy
+  result = copy.copy(extracts)
+  result[constants.FEATURES_PREDICTIONS_LABELS_KEY] = fpl_copy
   return result
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
 def ExtractMetaFeature(  # pylint: disable=invalid-name
-    examples_and_extracts,
+    extracts,
     new_features_fn
 ):
   """Extracts meta-features derived from existing features.
 
-  It must be the case that evaluate._Predict() was called on the
-  ExampleAndExtracts before calling this function.
+  It must be the case that evaluate._Predict() was called on the Extracts before
+  calling this function.
 
   Args:
-    examples_and_extracts: PCollection containing the ExampleAndExtracts that
-      will have MaterializedColumn added to its extracts.
+    extracts: PCollection containing the Extracts that will have
+      MaterializedColumn added to its extracts.
     new_features_fn: A function that adds new features. Must take a
       FeaturesPredictionsLabel tuple as an argument, and return a a dict of new
       features to add, where the keys are new feature names and the values are
@@ -122,8 +120,8 @@ def ExtractMetaFeature(  # pylint: disable=invalid-name
       inadvertently removing useful data.
 
   Returns:
-    PCollection of ExampleAndExtracts
+    PCollection of Extracts
   """
   return (
-      examples_and_extracts
+      extracts
       | 'ExtractMetaFeature' >> beam.Map(_ExtractMetaFeature, new_features_fn))

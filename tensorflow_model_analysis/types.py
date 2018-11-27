@@ -18,7 +18,6 @@ from __future__ import division
 
 from __future__ import print_function
 
-import copy
 
 import numpy as np
 import tensorflow as tf
@@ -55,10 +54,12 @@ MaterializedColumn = NamedTuple(
     [('name', Text),
      ('value', Union[List[bytes], List[int], List[float], bytes, int, float])])
 
-# Used in building model diagnostics table, the ExampleAndExtracts holds an
-# example and all its "extractions." Extractions that should be emitted to file.
-# Each Extract has a name, stored as the key of the DictOfExtractedValues.
-DictOfExtractedValues = Dict[Text, Any]
+# Extracts represent data extracted during pipeline processing. In order to
+# provide a flexible API, these types are just dicts where the keys are defined
+# (reserved for use) by different extractor implementations. For example, the
+# PredictExtractor stores the data for the features, labels, and predictions
+# under the keys "features", "labels", and "predictions".
+Extracts = Dict[Text, Any]
 
 # pylint: enable=invalid-name
 
@@ -128,35 +129,3 @@ class EvalSharedModel(
     return super(EvalSharedModel,
                  cls).__new__(cls, model_path, add_metrics_callbacks,
                               example_weight_key, shared_handle)
-
-
-class ExampleAndExtracts(
-    NamedTuple('ExampleAndExtracts', [('example', bytes),
-                                      ('extracts', DictOfExtractedValues)])):
-  """Example and extracts."""
-
-  def create_copy_with_shallow_copy_of_extracts(self):
-    """Returns a new copy of this with a shallow copy of extracts.
-
-    This is NOT equivalent to making a shallow copy with copy.copy(this).
-    That does NOT make a shallow copy of the dictionary. An illustration of
-    the differences:
-      a = ExampleAndExtracts(example='content', extracts=dict(apple=[1, 2]))
-
-      # The dictionary is shared (and hence the elements are also shared)
-      b = copy.copy(a)
-      b.extracts['banana'] = 10
-      assert a.extracts['banana'] == 10
-
-      # The dictionary is not shared (but the elements are)
-      c = a.create_copy_with_shallow_copy_of_extracts()
-      c.extracts['cherry'] = 10
-      assert 'cherry' not in a.extracts  # The dictionary is not shared
-      c.extracts['apple'][0] = 100
-      assert a.extracts['apple'][0] == 100  # But the elements are
-
-    Returns:
-      A shallow copy of this object.
-    """
-    return ExampleAndExtracts(
-        example=self.example, extracts=copy.copy(self.extracts))

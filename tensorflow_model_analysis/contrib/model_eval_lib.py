@@ -28,7 +28,7 @@ from tensorflow_model_analysis.types_compat import List, Optional
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(beam.typehints.Any)
 def BuildDiagnosticTable(  # pylint: disable=invalid-name
     examples,
     eval_shared_model,
@@ -37,7 +37,7 @@ def BuildDiagnosticTable(  # pylint: disable=invalid-name
   """Public API version of evaluate.BuildDiagnosticTable.
 
   Use this function to build an example-oriented PCollection containing, for
-  each example, an ExampleAndExtracts, useful for debugging models.
+  each example, an Extracts, useful for debugging models.
 
   Args:
     examples: PCollection of input examples. Can be any format the model accepts
@@ -49,7 +49,7 @@ def BuildDiagnosticTable(  # pylint: disable=invalid-name
       Aggregate.
 
   Returns:
-    beam.pvalue.PCollection of ExampleAndExtracts. The caller is responsible for
+    beam.pvalue.PCollection of Extracts. The caller is responsible for
     committing to file for now.
   """
   if slice_spec is None:

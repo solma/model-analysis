@@ -26,7 +26,6 @@ from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import constants
-from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.api.impl import slice as slice_api
 from tensorflow_model_analysis.eval_saved_model import testutil
@@ -72,8 +71,10 @@ def create_fpls():
 
 
 def wrap_fpl(fpl):
-  return types.ExampleAndExtracts(
-      example=fpl, extracts={constants.FEATURES_PREDICTIONS_LABELS_KEY: fpl})
+  return {
+      constants.INPUT_KEY: fpl,
+      constants.FEATURES_PREDICTIONS_LABELS_KEY: fpl
+  }
 
 
 class SliceTest(testutil.TensorflowModelAnalysisTest):

@@ -44,19 +44,20 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     example1 = self._makeExample(
         age=3.0, language='english', label=1.0, slice_key='first_slice')
 
-    example_and_extracts = types.ExampleAndExtracts(
-        example=example1.SerializeToString(), extracts={})
+    extracts = {constants.INPUT_KEY: example1.SerializeToString()}
     self.assertRaises(RuntimeError, feature_extractor._MaterializeFeatures,
-                      example_and_extracts)
+                      extracts)
 
   def testMaterializeFeaturesBadFPL(self):
     example1 = self._makeExample(
         age=3.0, language='english', label=1.0, slice_key='first_slice')
 
-    example_and_extracts = types.ExampleAndExtracts(
-        example=example1.SerializeToString(), extracts={'fpl': 123})
+    extracts = {
+        constants.INPUT_KEY: example1.SerializeToString(),
+        constants.FEATURES_PREDICTIONS_LABELS_KEY: 123
+    }
     self.assertRaises(TypeError, feature_extractor._MaterializeFeatures,
-                      example_and_extracts)
+                      extracts)
 
   def testMaterializeFeaturesNoMaterializedColumns(self):
     example1 = self._makeExample(
@@ -77,30 +78,27 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     predictions = {'p': {encoding.NODE_SUFFIX: np.array([2])}}
     labels = {'l': {encoding.NODE_SUFFIX: np.array([3])}}
 
-    example_and_extracts = types.ExampleAndExtracts(
-        example=example1.SerializeToString(),
-        extracts={
-            'fpl':
-                api_types.FeaturesPredictionsLabels(
-                    input_refs=0,
-                    features=features,
-                    predictions=predictions,
-                    labels=labels)
-        })
-    fpl = example_and_extracts.extracts[constants
-                                        .FEATURES_PREDICTIONS_LABELS_KEY]
-    result = feature_extractor._MaterializeFeatures(example_and_extracts)
-    self.assertTrue(isinstance(result, types.ExampleAndExtracts))
-    self.assertEqual(result.extracts['fpl'], fpl)  # should still be there.
-    self.assertEqual(result.extracts['f'],
-                     types.MaterializedColumn(name='f', value=[1]))
-    self.assertEqual(result.extracts['p'],
-                     types.MaterializedColumn(name='p', value=[2]))
-    self.assertEqual(result.extracts['l'],
-                     types.MaterializedColumn(name='l', value=[3]))
+    extracts = {
+        constants.INPUT_KEY:
+            example1.SerializeToString(),
+        constants.FEATURES_PREDICTIONS_LABELS_KEY:
+            api_types.FeaturesPredictionsLabels(
+                input_refs=0,
+                features=features,
+                predictions=predictions,
+                labels=labels)
+    }
+    fpl = extracts[constants.FEATURES_PREDICTIONS_LABELS_KEY]
+    result = feature_extractor._MaterializeFeatures(extracts)
+    self.assertTrue(isinstance(result, dict))
+    self.assertEqual(result[constants.FEATURES_PREDICTIONS_LABELS_KEY],
+                     fpl)  # should still be there.
+    self.assertEqual(result['f'], types.MaterializedColumn(name='f', value=[1]))
+    self.assertEqual(result['p'], types.MaterializedColumn(name='p', value=[2]))
+    self.assertEqual(result['l'], types.MaterializedColumn(name='l', value=[3]))
     self.assertEqual(
-        result.extracts['s'],
-        types.MaterializedColumn(name='s', value=[100., 200., 300.]))
+        result['s'], types.MaterializedColumn(
+            name='s', value=[100., 200., 300.]))
 
 
 if __name__ == '__main__':

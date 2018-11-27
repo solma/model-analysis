@@ -68,7 +68,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
       metrics, plots = (
           pipeline
           | 'Create' >> beam.Create(serialized_examples)
-          | 'ToExampleAndExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))

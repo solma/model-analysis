@@ -24,10 +24,15 @@ UNKNOWN_EVAL_MODE = 'unknown_eval_mode'
 MODEL_CENTRIC_MODE = 'model_centric_mode'
 DATA_CENTRIC_MODE = 'data_centric_mode'
 
-# Keys to ExampleAndExtract extraction dictionary.
+# Keys for Extracts dictionary.
+
+# Input key. Could be a serialised tf.train.Example, a CSV row, JSON data, etc
+# depending on what the EvalInputReceiver was configured to accept as input.
+INPUT_KEY = 'input'
+# Features, predictions, and labels key.
 FEATURES_PREDICTIONS_LABELS_KEY = 'fpl'
 # Contains SliceKeyTypes that are used to fanout and aggregate.
-SLICE_KEYS = 'slice_keys'
+SLICE_KEYS_KEY = 'slice_keys'
 # Human-readable slice strings that are written to the diagnostic table for
 # analysis.
-SLICE_KEYS_MATERIALIZED = 'materialized_slice_keys'
+MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'

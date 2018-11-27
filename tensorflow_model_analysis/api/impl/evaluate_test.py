@@ -104,7 +104,7 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
               example3.SerializeToString(),
               example4.SerializeToString()
           ])
-          | 'ToExampleAnExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
@@ -165,7 +165,7 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
                 example4.SerializeToString(),
                 example5.SerializeToString(),
             ])
-            | 'ToExampleAnExtracts' >> evaluate.ToExampleAndExtracts()
+            | 'InputsToExtracts' >> evaluate.InputsToExtracts()
             | 'Extractors' >> evaluate.Extract(extractors=extractors)
             | 'Evaluate' >> evaluate.Evaluate(
                 eval_shared_model=eval_shared_model,
@@ -250,7 +250,7 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
               example3.SerializeToString(),
               example4.SerializeToString()
           ])
-          | 'ToExampleAnExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
@@ -307,7 +307,7 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
               example1.SerializeToString(),
               example2.SerializeToString(),
           ])
-          | 'ToExampleAnExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
@@ -360,7 +360,7 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
               example3.SerializeToString(),
               example4.SerializeToString()
           ])
-          | 'ToExampleAnExtracts' >> evaluate.ToExampleAndExtracts()
+          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
           | 'Extract' >> evaluate.Extract(extractors=extractors)
           |
           'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))

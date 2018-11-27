@@ -22,6 +22,7 @@ from __future__ import print_function
 
 import apache_beam as beam
 
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import aggregate
 from tensorflow_model_analysis.api.impl import api_types
@@ -37,17 +38,15 @@ _METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
-def ToExampleAndExtracts(examples):
-  """Converts an example to ExampleAndExtracts with empty extracts."""
-  return (examples
-          |
-          beam.Map(lambda x: types.ExampleAndExtracts(example=x, extracts={})))
+@beam.typehints.with_output_types(beam.typehints.Any)
+def InputsToExtracts(inputs):
+  """Converts serialized inputs (e.g. examples) to Extracts."""
+  return inputs | beam.Map(lambda x: {constants.INPUT_KEY: x})
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
 def Extract(examples_and_extracts,
             extractors):
   """Performs Extractions serially in provided order."""
@@ -60,7 +59,7 @@ def Extract(examples_and_extracts,
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(types.ExampleAndExtracts)
+@beam.typehints.with_input_types(beam.typehints.Any)
 # No typehint for output type, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
 def Evaluate(  # pylint: disable=invalid-name
@@ -74,8 +73,8 @@ def Evaluate(  # pylint: disable=invalid-name
   tfma.ExtractEvaluateAndWriteResults instead of this function.
 
   Args:
-    examples_and_extracts: PCollection of ExampleAndExtracts. The extracts MUST
-      contain a FeaturesPredictionsLabels extract with key 'fpl' and a list of
+    examples_and_extracts: PCollection of Extracts. The extracts MUST contain a
+      FeaturesPredictionsLabels extract with key 'fpl' and a list of
       SliceKeyType extracts with key 'slice_keys'. Typically these will be added
       by calling the default_extractors function.
     eval_shared_model: Shared model parameters for EvalSavedModel including any
@@ -110,7 +109,7 @@ def Evaluate(  # pylint: disable=invalid-name
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(bytes)
-@beam.typehints.with_output_types(types.ExampleAndExtracts)
+@beam.typehints.with_output_types(beam.typehints.Any)
 def BuildDiagnosticTable(  # pylint: disable=invalid-name
     examples,
     eval_shared_model,
@@ -132,7 +131,7 @@ def BuildDiagnosticTable(  # pylint: disable=invalid-name
       aggregating the metrics. If not provided, a default set will be run.
 
   Returns:
-    PCollection of ExampleAndExtracts
+    PCollection of Extracts
   """
 
   if not extractors:
@@ -145,6 +144,6 @@ def BuildDiagnosticTable(  # pylint: disable=invalid-name
 
   # pylint: disable=no-value-for-parameter
   return (examples
-          | 'ToExampleAndExtracts' >> ToExampleAndExtracts()
+          | 'InputsToExtracts' >> InputsToExtracts()
           | Extract(extractors=extractors))
   # pylint: enable=no-value-for-parameter
