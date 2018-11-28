@@ -509,7 +509,8 @@ browser debug console:
 
     golden_crop = (crop_left, crop_top, crop_right, crop_bottom)
 
-    golden_array = np.asarray(golden_screenshot.crop(golden_crop))[:, :, 0:3]
+    golden_array = np.asarray(golden_screenshot.crop(golden_crop),
+                              np.int16)[:, :, 0:3]
 
     crop_width = crop_right - crop_left
     crop_height = crop_bottom - crop_top
@@ -526,7 +527,7 @@ browser debug console:
       current_crop = (crop_left, crop_top + scroll_offset, crop_right,
                       crop_bottom + scroll_offset)
       search_array = np.asarray(
-          current_screenshot.crop(current_crop))[:, :, 0:3]
+          current_screenshot.crop(current_crop), np.int16)[:, :, 0:3]
       diff_array = np.absolute(golden_array - search_array) > diff_tolerance
       count = np.count_nonzero(diff_array)
 
