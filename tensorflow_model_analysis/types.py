@@ -45,10 +45,10 @@ DictOfFetchedTensorValues = Dict[KeyType, Dict[Text, FetchedTensorValue]]
 MetricVariablesType = List[Any]
 
 
-# Used in building the model diagnostics table, a MatrializedColumn is a value
-# inside of ExampleAndExtract that will be emitted to file. Note that for
-# strings, the values are raw byte strings rather than unicode strings. This is
-# by design, as features can have arbitrary bytes values.
+# Used in building the model diagnostics table, a MaterializedColumn is a value
+# inside of Extracts that will be emitted to file. Note that for strings, the
+# values are raw byte strings rather than unicode strings. This is by design, as
+# features can have arbitrary bytes values.
 MaterializedColumn = NamedTuple(
     'MaterializedColumn',
     [('name', Text),
