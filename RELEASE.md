@@ -5,6 +5,7 @@
 ## Bug fixes and other changes
 
 ## Breaking changes
+*  Moved tfma.SingleSliceSpec to tfma.slicer.SingleSliceSpec.
 
 ## Deprecations
 

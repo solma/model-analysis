@@ -300,8 +300,8 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
         self.assertGeneralMetricsComputedWithBeamAre(
           eval_saved_model_path=path,
           examples_pcollection=examples,
-          slice_spec=[tfma.SingleSliceSpec(),
-                      tfma.SingleSliceSpec(columns=['age'])],
+          slice_spec=[tfma.slicer.SingleSliceSpec(),
+                      tfma.slicer.SingleSliceSpec(columns=['age'])],
           add_metrics_callbacks=[
             add_metrics, tfma.post_export_metrics.auc()],
           expected_slice_metrics=expected_slice_metrics)
