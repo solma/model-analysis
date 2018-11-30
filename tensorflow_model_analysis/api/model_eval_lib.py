@@ -324,8 +324,8 @@ def run_model_analysis(
     data_location: The location of the data files.
     file_format: The file format of the data, can be either 'text' or
       'tfrecords' for now. By default, 'tfrecords' will be used.
-    slice_spec: A list of tfma.SingleSliceSpec. Each spec represents a way to
-      slice the data. If None, defaults to the overall slice.
+    slice_spec: A list of tfma.slicer.SingleSliceSpec. Each spec represents a
+      way to slice the data. If None, defaults to the overall slice.
       Example usages:
       - tfma.SingleSiceSpec(): no slice, metrics are computed on overall data.
       - tfma.SingleSiceSpec(columns=['country']): slice based on features in
