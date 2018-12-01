@@ -4,10 +4,6 @@
 
 ## Bug fixes and other changes
 
-* We now store feature and label Tensor information in SignatureDef inputs
-  instead of Collections in anticipation of Collections being deprecated in
-  TF 2.0.
-
 ## Breaking changes
 *  Moved tfma.SingleSliceSpec to tfma.slicer.SingleSliceSpec.
 

@@ -93,29 +93,16 @@ def _eval_input_receiver_fn():
   features = _parse_csv(csv_row)
   receiver_tensors = {'examples': csv_row}
 
+  # the constructor of EvalInputReceiver() has side effects (populating some
+  # TF collections). Calling twice here to make sure the collisions are handled
+  # correctly.
+  export.EvalInputReceiver(
+      features=features,
+      labels=features['input_index'],
+      receiver_tensors=receiver_tensors,
+      input_refs=features['input_index'])
+
   return export.EvalInputReceiver(
-      features=features,
-      labels=features['input_index'],
-      receiver_tensors=receiver_tensors,
-      input_refs=features['input_index'])
-
-
-def _legacy_eval_input_receiver_fn():
-  """Legacy eval input receiver function."""
-  csv_row = tf.placeholder(dtype=tf.string, shape=[None], name='input_csv_row')
-  features = _parse_csv(csv_row)
-  receiver_tensors = {'examples': csv_row}
-
-  # the constructor of _LegacyEvalInputReceiver() has side effects (populating
-  # some TF collections). Calling twice here to make sure the collisions are
-  # handled correctly.
-  export._LegacyEvalInputReceiver(  # pylint: disable=protected-access
-      features=features,
-      labels=features['input_index'],
-      receiver_tensors=receiver_tensors,
-      input_refs=features['input_index'])
-
-  return export._LegacyEvalInputReceiver(  # pylint: disable=protected-access
       features=features,
       labels=features['input_index'],
       receiver_tensors=receiver_tensors,
@@ -208,20 +195,6 @@ def fake_multi_examples_per_input_estimator(export_path, eval_export_path):
       estimator=estimator,
       serving_input_receiver_fn=_serving_input_receiver_fn,
       eval_input_receiver_fn=_eval_input_receiver_fn,
-      export_path=export_path,
-      eval_export_path=eval_export_path)
-
-
-def legacy_fake_multi_examples_per_input_estimator(export_path,
-                                                   eval_export_path):
-  """Trains and exports a model that treats 1 input as 0 to n examples ."""
-  estimator = tf.estimator.Estimator(model_fn=_model_fn)
-  estimator.train(input_fn=_train_input_fn, steps=1)
-
-  return util.export_model_and_eval_model(
-      estimator=estimator,
-      serving_input_receiver_fn=_serving_input_receiver_fn,
-      eval_input_receiver_fn=_legacy_eval_input_receiver_fn,
       export_path=export_path,
       eval_export_path=eval_export_path)
 

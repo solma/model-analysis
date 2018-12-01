@@ -42,7 +42,7 @@ def make_features_dict(features_dict):
 
 def create_fpls():
   fpl1 = api_types.FeaturesPredictionsLabels(
-      input_ref=0,
+      input_refs=0,
       features=make_features_dict({
           'gender': ['f'],
           'age': [13],
@@ -55,7 +55,7 @@ def create_fpls():
           'ad_risk_score': [0]
       }))
   fpl2 = api_types.FeaturesPredictionsLabels(
-      input_ref=0,
+      input_refs=0,
       features=make_features_dict({
           'gender': ['m'],
           'age': [10],

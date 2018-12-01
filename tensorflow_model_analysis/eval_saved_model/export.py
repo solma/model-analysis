@@ -51,99 +51,9 @@ def EvalInputReceiver(  # pylint: disable=invalid-name
     input_refs = None):
   """Returns an appropriate receiver for eval_input_receiver_fn.
 
-  This is a wrapper around TensorFlow's InputReceiver that adds additional
-  entries and prefixes to the input tensors so that features and labels can be
-  discovered at evaluation time. It also wraps the features and labels tensors
-  in identity to workaround TensorFlow issue #17568.
-
-  The resulting signature_def.inputs will have the following form:
-    inputs/<input>     - placeholders that are used for input processing (i.e
-                         receiver_tensors). If receiver_tensors is a tensor and
-                         not a dict, then this will just be named 'inputs'.
-    input_refs         - reference to input_refs tensor (see below).
-    features/<feature> - references to tensors passed in features. If features
-                         is a tensor and not a dict, then this will just be
-                         named 'features'.
-    labels/<label>     - references to tensors passed in labels. If labels is
-                         a tensor and not a dict, then this will just be named
-                         'labels'.
-
-  Args:
-    features: A `Tensor`, `SparseTensor`, or dict of string to `Tensor` or
-      `SparseTensor`, specifying the features to be passed to the model.
-    labels: A `Tensor`, `SparseTensor`, or dict of string to `Tensor` or
-      `SparseTensor`, specifying the labels to be passed to the model. If your
-      model is an unsupervised model whose `model_fn` does not accept a `labels`
-      argument, you may pass None instead.
-    receiver_tensors: A dict of string to `Tensor` containing exactly key named
-      'examples', which maps to the single input node that the receiver expects
-      to be fed by default. Typically this is a placeholder expecting serialized
-      `tf.Example` protos.
-    input_refs: Optional. A 1-D integer `Tensor` that is batch-aligned with
-      `features` and `labels` which is an index into
-      receiver_tensors['examples'] indicating where this slice of features /
-      labels came from. If not provided, defaults to range(0,
-      len(receiver_tensors['examples'])).
-
-  Raises:
-    ValueError: receiver_tensors did not contain exactly one key named
-      "examples".
-  """
-  if list(receiver_tensors.keys()) != ['examples']:
-    raise ValueError('receiver_tensors must contain exactly one key named '
-                     'examples.')
-
-  if input_refs is None:
-    input_refs = tf.range(tf.size(list(receiver_tensors.values())[0]))
-
-  updated_receiver_tensors = {}
-
-  def add_tensors(prefix, tensor_or_dict):
-    if isinstance(tensor_or_dict, dict):
-      for key in tensor_or_dict:
-        updated_receiver_tensors[prefix + '/' + key] = tensor_or_dict[key]
-    else:
-      updated_receiver_tensors[prefix] = tensor_or_dict
-
-  add_tensors(constants.SIGNATURE_DEF_INPUTS_PREFIX, receiver_tensors)
-  add_tensors(constants.SIGNATURE_DEF_FEATURES_PREFIX, features)
-  if labels is not None:
-    add_tensors(constants.SIGNATURE_DEF_LABELS_PREFIX, labels)
-  updated_receiver_tensors[constants.SIGNATURE_DEF_INPUT_REFS_KEY] = (
-      input_refs)
-  updated_receiver_tensors[constants.SIGNATURE_DEF_TFMA_VERSION_KEY] = (
-      tf.constant(version.VERSION_STRING))
-
-  _add_tfma_collections(features, labels, input_refs)
-
-  # Workaround for TensorFlow issue #17568. Note that we pass the
-  # identity-wrapped features and labels to model_fn, but we have to feed
-  # the non-identity wrapped Tensors during evaluation.
-  #
-  # Also note that we can't wrap predictions, so metrics that have control
-  # dependencies on predictions will cause the predictions to be recomputed
-  # during their evaluation.
-  wrapped_features = util.wrap_tensor_or_dict_of_tensors_in_identity(features)
-  if labels is not None:
-    wrapped_labels = util.wrap_tensor_or_dict_of_tensors_in_identity(labels)
-    return export_lib.SupervisedInputReceiver(
-        features=wrapped_features,
-        labels=wrapped_labels,
-        receiver_tensors=updated_receiver_tensors)
-  else:
-    return export_lib.UnsupervisedInputReceiver(
-        features=wrapped_features, receiver_tensors=updated_receiver_tensors)
-
-
-@tfma_util.kwargs_only
-def _LegacyEvalInputReceiver(  # pylint: disable=invalid-name
-    features,
-    labels,
-    receiver_tensors,
-    input_refs = None):
-  """Returns a legacy eval_input_receiver_fn.
-
-  This is for testing purposes only.
+    This is a wrapper around TensorFlow InputReceiver that explicitly adds
+    collections needed by TFMA, and also wraps the features and labels Tensors
+    in identity to workaround TensorFlow issue #17568.
 
   Args:
     features: A `Tensor`, `SparseTensor`, or dict of string to `Tensor` or
@@ -199,7 +109,7 @@ def _LegacyEvalInputReceiver(  # pylint: disable=invalid-name
 
 def _add_tfma_collections(features,
                           labels,
-                          input_refs):
+                          example_ref):
   """Add extra collections for features, labels, input_refs, version.
 
   This should be called within the Graph that will be saved. Typical usage
@@ -209,7 +119,7 @@ def _add_tfma_collections(features,
   Args:
     features: dict of strings to tensors representing features
     labels: dict of strings to tensors or a single tensor
-    input_refs: See EvalInputReceiver().
+    example_ref: See EvalInputReceiver().
   """
   # Clear existing collections first, in case the EvalInputReceiver was called
   # multiple times.
@@ -233,16 +143,14 @@ def _add_tfma_collections(features,
   if labels is not None:
     # Labels can either be a Tensor, or a dict of Tensors.
     if not isinstance(labels, dict):
-      labels = {constants.DEFAULT_LABELS_DICT_KEY: labels}
+      labels = {encoding.DEFAULT_LABELS_DICT_KEY: labels}
 
     for label_key, label_node in labels.items():
       _encode_and_add_to_node_collection(encoding.LABELS_COLLECTION, label_key,
                                          label_node)
-  # Previously input_refs was called example_ref. This code is being deprecated
-  # so it was not renamed.
   example_ref_collection = tf.get_collection_ref(
       encoding.EXAMPLE_REF_COLLECTION)
-  example_ref_collection.append(encoding.encode_tensor_node(input_refs))
+  example_ref_collection.append(encoding.encode_tensor_node(example_ref))
 
   tf.add_to_collection(encoding.TFMA_VERSION_COLLECTION, version.VERSION_STRING)
 
