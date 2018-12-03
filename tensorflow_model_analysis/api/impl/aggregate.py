@@ -18,9 +18,11 @@ from __future__ import division
 
 from __future__ import print_function
 
+import copy
 
 
 import apache_beam as beam
+import numpy as np
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
@@ -35,6 +37,8 @@ from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterabl
 _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
     beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
 
+SAMPLE_ID = '__sample_id'
+
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(
@@ -47,20 +51,65 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
     slice_result,
     eval_shared_model,
     desired_batch_size = None,
+    num_bootstrap_samples = 1,
 ):
-  """PTransform for computing, aggregating and combining metrics."""
+  """PTransform for computing, aggregating and combining metrics.
+
+  Args:
+    slice_result: Incoming PCollection consisting of slice key and example.
+    eval_shared_model: Shared model parameters for EvalSavedModel.
+    desired_batch_size: Optional batch size for batching in Aggregate.
+    num_bootstrap_samples: Number of replicas to use in calculating uncertainty
+      using bootstrapping.  If 1 is provided (default), aggregate metrics will
+      be calculated with no uncertainty. If num_bootstrap_samples is > 0,
+      multiple samples of each slice will be calculated using the Poisson
+      bootstrap method. To calculate standard errors, num_bootstrap_samples
+      should be 20 or more in order to provide useful data. More is better, but
+      you pay a performance cost.
+
+  Returns:
+    DoOutputsTuple. The tuple entries are
+    PCollection of (slice key, metrics) and
+    PCollection of (slice key, plot metrics).
+  """
+  compute_with_sampling = False
+  if num_bootstrap_samples < 1:
+    raise ValueError(
+        'num_bootstrap_samples should be > 0, got %d' % num_bootstrap_samples)
+  if num_bootstrap_samples > 1:
+    slice_result = slice_result | 'FanoutBootstrap' >> beam.ParDo(
+        _FanoutBootstrapFn(num_bootstrap_samples))
+    compute_with_sampling = True
   return (
       slice_result
       | 'CombinePerSlice' >> beam.CombinePerKey(
           _AggregateCombineFn(
               eval_shared_model=eval_shared_model,
-              desired_batch_size=desired_batch_size))
+              desired_batch_size=desired_batch_size,
+              compute_with_sampling=compute_with_sampling))
       # Explicitly specify a fanout to alleviate memory issues.
       .with_hot_key_fanout(fanout=16)
       | 'InterpretOutput' >> beam.ParDo(
           _ExtractOutputDoFn(eval_shared_model=eval_shared_model)).with_outputs(
               _ExtractOutputDoFn.OUTPUT_TAG_PLOTS,
               main=_ExtractOutputDoFn.OUTPUT_TAG_METRICS))
+
+
+class _FanoutBootstrapFn(beam.DoFn):
+  """For each bootstrap sample you want, we fan out an additional slice."""
+
+  def __init__(self, num_bootstrap_samples):
+    self._num_bootstrap_samples = num_bootstrap_samples
+
+  def process(self, element):
+    slice_key, value = element
+    for i in range(0, self._num_bootstrap_samples):
+      # Make a copy of the slice key, prepend the sample ID.
+      augmented_slice_key = (SAMPLE_ID, i) + copy.copy(slice_key)
+      # This fans out the pipeline, but because we are reducing in a
+      # CombinePerKey, we shouldn't have to deal with a great increase in
+      # network traffic.
+      yield (augmented_slice_key, value)
 
 
 def _add_metric_variables(  # pylint: disable=invalid-name
@@ -151,13 +200,15 @@ class _AggregateCombineFn(beam.CombineFn):
 
   def __init__(self,
                eval_shared_model,
-               desired_batch_size = None):
+               desired_batch_size = None,
+               compute_with_sampling = False):
     self._eval_shared_model = eval_shared_model
     self._eval_metrics_graph = None  # type: eval_metrics_graph.EvalMetricsGraph
     self._model_load_seconds = beam.metrics.Metrics.distribution(
         constants.METRICS_NAMESPACE, 'model_load_seconds')
     self._combine_batch_size = beam.metrics.Metrics.distribution(
         constants.METRICS_NAMESPACE, 'combine_batch_size')
+    self._compute_with_sampling = compute_with_sampling
 
     # We really want the batch size to be adaptive like it is in
     # beam.BatchElements(), but there isn't an easy way to make it so.
@@ -172,6 +223,29 @@ class _AggregateCombineFn(beam.CombineFn):
     self._eval_metrics_graph = (
         self._eval_shared_model.shared_handle.acquire(
             self._eval_shared_model.construct_fn))
+
+  def _poissonify(self, accumulator):
+    # pylint: disable=line-too-long
+    """Creates a bootstrap resample of the data in an accumulator.
+
+    Given a set of data, it will be represented in the resample set a number of
+    times, that number of times is drawn from Poisson(1).
+    See
+    http://www.unofficialgoogledatascience.com/2015/08/an-introduction-to-poisson-bootstrap26.html
+    for a detailed explanation of the technique.
+
+    Args:
+      accumulator: Accumulator containing FPLs from a sample
+
+    Returns:
+      A list of FPLs representing a bootstrap resample of the accumulator items.
+    """
+    fpls_for_metrics = []
+    poisson_values = np.random.poisson(1, len(accumulator.fpls))
+    for i, fpl in enumerate(accumulator.fpls):
+      for _ in range(0, poisson_values[i]):
+        fpls_for_metrics.append(copy.copy(fpl))
+    return fpls_for_metrics
 
   def _maybe_do_batch(self, accumulator,
                       force = False):
@@ -192,10 +266,16 @@ class _AggregateCombineFn(beam.CombineFn):
     if force or batch_size >= self._desired_batch_size:
       if accumulator.fpls:
         self._combine_batch_size.update(batch_size)
-        accumulator.add_metrics_variables(
-            self._eval_metrics_graph.metrics_reset_update_get_list(
-                accumulator.fpls))
-        del accumulator.fpls[:]
+        fpls_for_metrics = accumulator.fpls
+        if self._compute_with_sampling:
+          # If we are computing with multiple bootstrap replicates, use fpls
+          # generated by the Poisson bootstrapping technique.
+          fpls_for_metrics = self._poissonify(accumulator)
+        if fpls_for_metrics:
+          accumulator.add_metrics_variables(
+              self._eval_metrics_graph.metrics_reset_update_get_list(
+                  fpls_for_metrics))
+          del accumulator.fpls[:]
 
   def create_accumulator(self):
     return _AggState()
@@ -234,10 +314,9 @@ class _AggregateCombineFn(beam.CombineFn):
 
     # It's possible that the accumulator has not been fully flushed, if it was
     # not produced by a call to merge_accumulators (which is not guaranteed
-    # across all Beam Runenrs), so we defensively flush it here again, before we
+    # across all Beam Runners), so we defensively flush it here again, before we
     # extract data from it, to ensure correctness.
     self._maybe_do_batch(accumulator, force=True)
-
     return accumulator.metric_variables
 
 
@@ -266,7 +345,14 @@ class _ExtractOutputDoFn(beam.DoFn):
       self, element
   ):
     (slice_key, metric_variables) = element
-    self._eval_saved_model.set_metric_variables(metric_variables)
+    if metric_variables:
+      self._eval_saved_model.set_metric_variables(metric_variables)
+    # Note that there is a negligible chance of a poisson-bootstrap sample
+    # being empty after multiple calls to _maybe_do_batch. In this case it will
+    # return results from the last-computed slice. At reasonable sample sizes,
+    # the odds of this are so astronomical it's barely worth considering much
+    # less guarding against, but I'm putting this comment here to acknowledge
+    # the possibility.
     result = self._eval_saved_model.get_metric_values()
     slicing_metrics = {}
     plots = {}
@@ -280,7 +366,6 @@ class _ExtractOutputDoFn(beam.DoFn):
           plot = True
       if not plot:
         slicing_metrics[k] = v
-
     yield (slice_key, slicing_metrics)
     if plots:
       yield beam.pvalue.TaggedOutput(self.OUTPUT_TAG_PLOTS, (slice_key, plots))  # pytype: disable=bad-return-type

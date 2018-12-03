@@ -42,6 +42,7 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
     return os.path.join(self._getTempDir(), 'eval_export_dir')
 
   def testAggregateOverallSlice(self):
+
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = linear_classifier.simple_linear_classifier(
         None, temp_eval_export_dir)
@@ -153,6 +154,91 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
                 'my_mean_age': 4.0,
                 'my_mean_age_times_label': 0.0,
             })
+
+      util.assert_that(metrics, check_result)
+
+  def testAggregateMultipleSlicesWithSampling(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = linear_classifier.simple_linear_classifier(
+        None, temp_eval_export_dir)
+
+    eval_saved_model = load.EvalSavedModel(eval_export_dir)
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir)
+
+    with beam.Pipeline() as pipeline:
+      example1 = self._makeExample(age=3.0, language='english', label=1.0)
+      example2 = self._makeExample(age=3.0, language='chinese', label=0.0)
+      example3 = self._makeExample(age=4.0, language='english', label=1.0)
+      example4 = self._makeExample(age=5.0, language='chinese', label=0.0)
+
+      predict_result_english_slice = eval_saved_model.predict_list(
+          [example1.SerializeToString(),
+           example3.SerializeToString()])
+
+      predict_result_chinese_slice = eval_saved_model.predict_list(
+          [example2.SerializeToString(),
+           example4.SerializeToString()])
+
+      test_input = (
+          create_test_input(predict_result_english_slice, [(
+              ('language', 'english'))]) + create_test_input(
+                  predict_result_chinese_slice, [(('language', 'chinese'))]) +
+          # Overall slice
+          create_test_input(
+              predict_result_english_slice + predict_result_chinese_slice,
+              [()]))
+
+      metrics, _ = (
+          pipeline
+          | 'CreateTestInput' >> beam.Create(test_input)
+          | 'ComputePerSliceMetrics' >> aggregate.ComputePerSliceMetrics(
+              eval_shared_model=eval_shared_model,
+              desired_batch_size=3,
+              num_bootstrap_samples=10))
+
+      def check_overall_slice(slices):
+        for i in range(0, 10):
+          self.assertIn((aggregate.SAMPLE_ID, i), slices.keys())
+          my_dict = slices[(
+              aggregate.SAMPLE_ID,
+              i,
+          )]
+          self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
+          self.assertAlmostEqual(1.0, my_dict['accuracy'])
+          self.assertAlmostEqual(0.5, my_dict['label/mean'], delta=0.5)
+          self.assertAlmostEqual(
+              2.5, my_dict['my_mean_age_times_label'], delta=2.5)
+
+      def check_english_slice(slices):
+        for i in range(0, 10):
+          self.assertIn((aggregate.SAMPLE_ID, i, 'language', 'english'),
+                        slices.keys())
+          my_dict = slices[(aggregate.SAMPLE_ID, i, 'language', 'english')]
+          self.assertAlmostEqual(3.5, my_dict['my_mean_age'], delta=0.5)
+          self.assertAlmostEqual(1.0, my_dict['accuracy'])
+          self.assertAlmostEqual(1.0, my_dict['label/mean'])
+          self.assertAlmostEqual(
+              3.5, my_dict['my_mean_age_times_label'], delta=0.5)
+
+      def check_chinese_slice(slices):
+        for i in range(0, 10):
+          self.assertIn((aggregate.SAMPLE_ID, i, 'language', 'chinese'),
+                        slices.keys())
+          my_dict = slices[(aggregate.SAMPLE_ID, i, 'language', 'chinese')]
+          self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
+          self.assertAlmostEqual(1.0, my_dict['accuracy'])
+          self.assertAlmostEqual(0.0, my_dict['label/mean'])
+          self.assertAlmostEqual(0.0, my_dict['my_mean_age_times_label'])
+
+      def check_result(got):
+        self.assertEqual(30, len(got), 'got: %s' % got)
+        slices = {}
+        for slice_key, metrics in got:
+          slices[slice_key] = metrics
+        check_overall_slice(slices)
+        check_english_slice(slices)
+        check_chinese_slice(slices)
 
       util.assert_that(metrics, check_result)
 
