@@ -83,7 +83,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
             example1.SerializeToString(),
         constants.FEATURES_PREDICTIONS_LABELS_KEY:
             api_types.FeaturesPredictionsLabels(
-                input_refs=0,
+                input_ref=0,
                 features=features,
                 predictions=predictions,
                 labels=labels)

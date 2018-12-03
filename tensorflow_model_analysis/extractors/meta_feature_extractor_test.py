@@ -41,7 +41,7 @@ def make_features_dict(features_dict):
 def create_fpls():
   """Create test FPL dicts that can be used for verification."""
   fpl1 = api_types.FeaturesPredictionsLabels(
-      input_refs=0,
+      input_ref=0,
       features=make_features_dict({
           'gender': ['f'],
           'age': [13],
@@ -54,7 +54,7 @@ def create_fpls():
           'ad_risk_score': [0]
       }))
   fpl2 = api_types.FeaturesPredictionsLabels(
-      input_refs=1,
+      input_ref=1,
       features=make_features_dict({
           'gender': ['m'],
           'age': [10],
@@ -171,7 +171,7 @@ class MetaFeatureExtractorTest(testutil.TensorflowModelAnalysisTest):
         values=['', 'one', 'two'],
         dense_shape=[1, 2, 2])
     fpl_with_sparse_tensor = api_types.FeaturesPredictionsLabels(
-        input_refs=0, features={}, predictions={}, labels={})
+        input_ref=0, features={}, predictions={}, labels={})
 
     meta_feature_extractor._set_feature_value(fpl_with_sparse_tensor.features,
                                               'sparse', sparse_tensor_value)

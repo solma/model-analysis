@@ -54,7 +54,7 @@ Extractor = NamedTuple(  # pylint: disable=invalid-name
 
 FeaturesPredictionsLabels = NamedTuple(  # pylint: disable=invalid-name
     'FeaturesPredictionsLabels',
-    [('input_refs', int), ('features', types.DictOfFetchedTensorValues),
+    [('input_ref', int), ('features', types.DictOfFetchedTensorValues),
      ('predictions', types.DictOfFetchedTensorValues),
      ('labels', types.DictOfFetchedTensorValues)])
 
