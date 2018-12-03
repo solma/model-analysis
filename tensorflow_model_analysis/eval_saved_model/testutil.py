@@ -20,11 +20,15 @@ from __future__ import print_function
 
 import math
 import tempfile
+import apache_beam as beam
 import tensorflow as tf
+from tensorflow_model_analysis import constants
+from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis.eval_saved_model import dofn
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import util
-from tensorflow_model_analysis.types_compat import Dict, Iterable, List, Union, Sequence, Text, Tuple
+from tensorflow_model_analysis.types_compat import Callable, Dict, Iterable, List, Optional, Union, Sequence, Text, Tuple
 
 from tensorflow.core.example import example_pb2
 
@@ -122,6 +126,22 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
                      got_sparse_tensor_value.values.dtype)
     self.assertEqual(expected_sparse_tensor_value.dense_shape.dtype,
                      got_sparse_tensor_value.dense_shape.dtype)
+
+  def createTestEvalSharedModel(
+      self,
+      eval_saved_model_path,
+      add_metrics_callbacks = None,
+      example_weight_key = None):
+
+    model_load_seconds = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
+
+    return types.EvalSharedModel(
+        model_path=eval_saved_model_path,
+        add_metrics_callbacks=add_metrics_callbacks,
+        example_weight_key=example_weight_key,
+        construct_fn=dofn.make_construct_fn(
+            eval_saved_model_path, add_metrics_callbacks, model_load_seconds))
 
   def predict_injective_single_example(
       self, eval_saved_model,

@@ -76,7 +76,9 @@ class EvalSharedModel(
             ('add_metrics_callbacks',
              List[Callable]),  # List[AnyMetricsCallbackType]
             ('example_weight_key', Text),
-            ('shared_handle', shared.Shared)
+            ('shared_handle', shared.Shared),
+            ('construct_fn', Callable),
+            ('model_load_seconds', Any)
         ])):
   # pyformat: disable
   """Shared model used during extraction and evaluation.
@@ -92,6 +94,9 @@ class EvalSharedModel(
       will be 1 for each example.
     shared_handle: Optional handle to a shared.Shared object for sharing the
       in-memory model within / between stages.
+    construct_fn: A callable which constructs the graph on which we run
+      tensorflow operations such as metrics or predictions.
+    model_load_seconds: A beam metric distribution for tracking model load time.
 
   More details on add_metrics_callbacks:
 
@@ -121,11 +126,13 @@ class EvalSharedModel(
       model_path = None,
       add_metrics_callbacks = None,
       example_weight_key = None,
-      shared_handle = None):
+      shared_handle = None,
+      construct_fn = None,
+      model_load_seconds = None):
     if not add_metrics_callbacks:
       add_metrics_callbacks = []
     if not shared_handle:
       shared_handle = shared.Shared()
-    return super(EvalSharedModel,
-                 cls).__new__(cls, model_path, add_metrics_callbacks,
-                              example_weight_key, shared_handle)
+    return super(EvalSharedModel, cls).__new__(
+        cls, model_path, add_metrics_callbacks, example_weight_key,
+        shared_handle, construct_fn, model_load_seconds)

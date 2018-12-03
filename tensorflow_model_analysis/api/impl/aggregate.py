@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Public API for performing evaluations using the EvalSavedModel."""
+"""Public API for performing evaluations using the EvalMetricsGraph."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -22,10 +22,10 @@ from __future__ import print_function
 
 import apache_beam as beam
 
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import api_types
-from tensorflow_model_analysis.eval_saved_model import dofn
-from tensorflow_model_analysis.eval_saved_model import load
+from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterable, List, Optional, Text, Tuple
@@ -34,8 +34,6 @@ from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterabl
 # in Beam type annotations is not complete.
 _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
     beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
-
-_METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 
 @beam.ptransform_fn
@@ -155,11 +153,11 @@ class _AggregateCombineFn(beam.CombineFn):
                eval_shared_model,
                desired_batch_size = None):
     self._eval_shared_model = eval_shared_model
-    self._eval_saved_model = None  # type: load.EvalSavedModel
+    self._eval_metrics_graph = None  # type: eval_metrics_graph.EvalMetricsGraph
     self._model_load_seconds = beam.metrics.Metrics.distribution(
-        _METRICS_NAMESPACE, 'model_load_seconds')
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
     self._combine_batch_size = beam.metrics.Metrics.distribution(
-        _METRICS_NAMESPACE, 'combine_batch_size')
+        constants.METRICS_NAMESPACE, 'combine_batch_size')
 
     # We really want the batch size to be adaptive like it is in
     # beam.BatchElements(), but there isn't an easy way to make it so.
@@ -171,10 +169,9 @@ class _AggregateCombineFn(beam.CombineFn):
   def _start_bundle(self):
     # There's no initialisation method for CombineFns.
     # See BEAM-3736: Add SetUp() and TearDown() for CombineFns.
-    self._eval_saved_model = self._eval_shared_model.shared_handle.acquire(
-        dofn.make_construct_fn(self._eval_shared_model.model_path,
-                               self._eval_shared_model.add_metrics_callbacks,
-                               self._model_load_seconds))
+    self._eval_metrics_graph = (
+        self._eval_shared_model.shared_handle.acquire(
+            self._eval_shared_model.construct_fn))
 
   def _maybe_do_batch(self, accumulator,
                       force = False):
@@ -188,17 +185,15 @@ class _AggregateCombineFn(beam.CombineFn):
       force: Force intro metrics even if accumulator has less FPLs than the
         batch size.
     """
-    # Note that we're mutating the accumulator in-place. Beam guarantees that
-    # this is safe.
 
-    if self._eval_saved_model is None:
+    if self._eval_metrics_graph is None:
       self._start_bundle()
     batch_size = len(accumulator.fpls)
     if force or batch_size >= self._desired_batch_size:
       if accumulator.fpls:
         self._combine_batch_size.update(batch_size)
         accumulator.add_metrics_variables(
-            self._eval_saved_model.metrics_reset_update_get_list(
+            self._eval_metrics_graph.metrics_reset_update_get_list(
                 accumulator.fpls))
         del accumulator.fpls[:]
 
@@ -251,11 +246,21 @@ class _AggregateCombineFn(beam.CombineFn):
                                                                 .Any]])
 # No typehint for output type, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
-class _ExtractOutputDoFn(dofn.EvalSavedModelDoFn):
+class _ExtractOutputDoFn(beam.DoFn):
   """A DoFn that extracts the metrics output."""
 
   OUTPUT_TAG_METRICS = 'tag_metrics'
   OUTPUT_TAG_PLOTS = 'tag_plots'
+
+  def __init__(self, eval_shared_model):
+    self._eval_shared_model = eval_shared_model
+
+  def start_bundle(self):
+    # There's no initialisation method for CombineFns.
+    # See BEAM-3736: Add SetUp() and TearDown() for CombineFns.
+    self._eval_saved_model = (
+        self._eval_shared_model.shared_handle.acquire(
+            self._eval_shared_model.construct_fn))
 
   def process(
       self, element

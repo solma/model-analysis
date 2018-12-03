@@ -27,7 +27,6 @@ import apache_beam as beam
 from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
-from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api import model_eval_lib
 from tensorflow_model_analysis.api.impl import evaluate
 from tensorflow_model_analysis.eval_saved_model import testutil
@@ -60,8 +59,8 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     self.assertTrue(custom_metrics_check is not None or
                     custom_plots_check is not None)
     serialized_examples = [ex.SerializeToString() for ex in examples]
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir, add_metrics_callbacks=metrics)
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir, add_metrics_callbacks=metrics)
     extractors = model_eval_lib.default_extractors(
         eval_shared_model=eval_shared_model)
     with beam.Pipeline() as pipeline:

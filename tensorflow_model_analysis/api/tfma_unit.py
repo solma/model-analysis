@@ -247,7 +247,8 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
       except AssertionError as err:
         raise beam_util.BeamAssertException(err)
 
-    eval_shared_model = types.EvalSharedModel(model_path=eval_saved_model_path)
+    eval_shared_model = model_eval_lib.default_eval_shared_model(
+        eval_saved_model_path=eval_saved_model_path)
     extractors = model_eval_lib.default_extractors(
         eval_shared_model=eval_shared_model)
 
@@ -332,8 +333,8 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
       except AssertionError as err:
         raise beam_util.BeamAssertException(err)
 
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_saved_model_path,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_saved_model_path,
         add_metrics_callbacks=add_metrics_callbacks)
     extractors = model_eval_lib.default_extractors(
         eval_shared_model=eval_shared_model, slice_spec=slice_spec)

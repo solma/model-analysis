@@ -16,15 +16,13 @@
 
 
 import datetime
-
 import apache_beam as beam
+
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.eval_saved_model import load
-from tensorflow_model_analysis.eval_saved_model import util
 
 from tensorflow_model_analysis.types_compat import List, Optional, Text
-
-_METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 
 def make_construct_fn(  # pylint: disable=invalid-name
@@ -38,25 +36,7 @@ def make_construct_fn(  # pylint: disable=invalid-name
     start_time = datetime.datetime.now()
     result = load.EvalSavedModel(eval_saved_model_path)
     if add_metrics_callbacks:
-      features_dict, predictions_dict, labels_dict = (
-          result.get_features_predictions_labels_dicts())
-      features_dict = util.wrap_tensor_or_dict_of_tensors_in_identity(
-          features_dict)
-      predictions_dict = util.wrap_tensor_or_dict_of_tensors_in_identity(
-          predictions_dict)
-      labels_dict = util.wrap_tensor_or_dict_of_tensors_in_identity(labels_dict)
-      with result.graph_as_default():
-        metric_ops = {}
-        for add_metrics_callback in add_metrics_callbacks:
-          new_metric_ops = add_metrics_callback(features_dict, predictions_dict,
-                                                labels_dict)
-          overlap = set(new_metric_ops.keys()) & set(metric_ops.keys())
-          if overlap:
-            raise ValueError('metric keys should not conflict, but an '
-                             'earlier callback already added the metrics '
-                             'named %s' % overlap)
-          metric_ops.update(new_metric_ops)
-        result.register_additional_metric_ops(metric_ops)
+      result.register_add_metric_callbacks(add_metrics_callbacks)
     result.graph_finalize()
     end_time = datetime.datetime.now()
     model_load_seconds.update(int((end_time - start_time).total_seconds()))
@@ -72,7 +52,7 @@ class EvalSavedModelDoFn(beam.DoFn):
     self._eval_shared_model = eval_shared_model
     self._eval_saved_model = None  # type: load.EvalSavedModel
     self._model_load_seconds = beam.metrics.Metrics.distribution(
-        _METRICS_NAMESPACE, 'model_load_seconds')
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
 
   def start_bundle(self):
     self._eval_saved_model = (

@@ -33,6 +33,7 @@ from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
 from tensorflow_model_analysis.constants import INPUT_KEY
 from tensorflow_model_analysis.constants import MODEL_CENTRIC_MODE
 
+from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import export
 from tensorflow_model_analysis.eval_saved_model import exporter
 

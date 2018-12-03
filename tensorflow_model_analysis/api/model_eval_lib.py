@@ -28,6 +28,7 @@ from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.api.impl import evaluate
 from tensorflow_model_analysis.api.impl import serialization
+from tensorflow_model_analysis.eval_saved_model import dofn
 from tensorflow_model_analysis.extractors import predict_extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
@@ -63,11 +64,15 @@ def default_eval_shared_model(
         example_weight_key)
     add_metrics_callbacks.append(example_weight_callback)
   # pytype: enable=module-attr
+  model_load_seconds = beam.metrics.Metrics.distribution(
+      constants.METRICS_NAMESPACE, 'model_load_seconds')
 
   return types.EvalSharedModel(
       model_path=eval_saved_model_path,
       add_metrics_callbacks=add_metrics_callbacks,
-      example_weight_key=example_weight_key)
+      example_weight_key=example_weight_key,
+      construct_fn=dofn.make_construct_fn(
+          eval_saved_model_path, add_metrics_callbacks, model_load_seconds))
 
 
 def default_extractors(  # pylint: disable=invalid-name
@@ -306,7 +311,8 @@ def run_model_analysis(
     file_format = 'tfrecords',
     slice_spec = None,
     output_path = None,
-    extractors = None
+    extractors = None,
+    pipeline_options = None,
 ):
   """Runs TensorFlow model analysis.
 
@@ -336,6 +342,8 @@ def run_model_analysis(
     output_path: The directory to output metrics and results to. If None, we use
       a temporary directory.
     extractors: An optional list of PTransforms to run before slicing the data.
+    pipeline_options: Optional arguments to run the Pipeline, for instance
+      whether to run directly.
 
   Returns:
     An EvalResult that can be used with the TFMA visualization functions.
@@ -350,7 +358,7 @@ def run_model_analysis(
   if not tf.gfile.Exists(output_path):
     tf.gfile.MakeDirs(output_path)
 
-  with beam.Pipeline() as p:
+  with beam.Pipeline(options=pipeline_options) as p:
     if file_format == 'tfrecords':
       data = p | 'ReadFromTFRecord' >> beam.io.ReadFromTFRecord(
           file_pattern=data_location,

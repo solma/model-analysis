@@ -22,7 +22,6 @@ import os
 import apache_beam as beam
 from apache_beam.testing import util
 import tensorflow as tf
-from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import aggregate
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import testutil
@@ -48,7 +47,8 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
         None, temp_eval_export_dir)
 
     eval_saved_model = load.EvalSavedModel(eval_export_dir)
-    eval_shared_model = types.EvalSharedModel(model_path=eval_export_dir)
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir)
 
     with beam.Pipeline() as pipeline:
       example1 = self._makeExample(age=3.0, language='english', label=1.0)
@@ -90,7 +90,8 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
         None, temp_eval_export_dir)
 
     eval_saved_model = load.EvalSavedModel(eval_export_dir)
-    eval_shared_model = types.EvalSharedModel(model_path=eval_export_dir)
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir)
 
     with beam.Pipeline() as pipeline:
       example1 = self._makeExample(age=3.0, language='english', label=1.0)

@@ -26,7 +26,6 @@ import apache_beam as beam
 from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
-from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import evaluate
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_estimator
@@ -82,8 +81,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = linear_classifier.simple_linear_classifier(
         None, temp_eval_export_dir)
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir,
         add_metrics_callbacks=[_addExampleCountMetricCallback])
     extractors = [
         predict_extractor.PredictExtractor(eval_shared_model),
@@ -131,8 +130,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = linear_classifier.simple_linear_classifier(
         None, temp_eval_export_dir)
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir,
         add_metrics_callbacks=[_addExampleCountMetricCallback])
     extractors = [
         predict_extractor.PredictExtractor(eval_shared_model),
@@ -220,8 +219,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = linear_classifier.simple_linear_classifier(
         None, temp_eval_export_dir)
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir,
         add_metrics_callbacks=[
             _addExampleCountMetricCallback,
             # Note that since everything runs in-process this doesn't
@@ -286,8 +285,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
         fixed_prediction_estimator_no_labels
         .simple_fixed_prediction_estimator_no_labels(None,
                                                      temp_eval_export_dir))
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir,
         add_metrics_callbacks=[
             post_export_metrics.example_count(),
             post_export_metrics.example_weight(example_weight_key='prediction')
@@ -335,8 +334,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
     _, eval_export_dir = (
         fixed_prediction_estimator.simple_fixed_prediction_estimator(
             None, temp_eval_export_dir))
-    eval_shared_model = types.EvalSharedModel(
-        model_path=eval_export_dir,
+    eval_shared_model = self.createTestEvalSharedModel(
+        eval_saved_model_path=eval_export_dir,
         add_metrics_callbacks=[
             post_export_metrics.example_count(),
             post_export_metrics.auc_plots()

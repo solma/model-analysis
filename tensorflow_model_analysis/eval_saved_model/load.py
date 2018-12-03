@@ -23,8 +23,8 @@ import itertools
 import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis import util as general_util
 from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import constants
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.eval_saved_model import graph_ref
@@ -42,19 +42,20 @@ SingleInputFeedType = Union[bytes, Dict[bytes, Any]]  # pylint: disable=invalid-
 MultipleInputFeedType = Union[List[bytes], Dict[bytes, List[Any]]]  # pylint: disable=invalid-name
 
 
-class EvalSavedModel(object):
-  """Abstraction for using a EvalSavedModel."""
+class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
+  """Abstraction for using a EvalSavedModel.
+
+  Note that this class overrides eval_metrics_graph.EvalMetricsGraph
+  which contains most of the functionality for handling the metric ops.
+  In the eval saved model path, a common graph is shared between generation
+  FeaturesPredictionLabels through Predict and doing the metric ops.
+  The specific methods of this class constructs the graph and handles
+  the prediction ops.
+  """
 
   def __init__(self, path):
     self._path = path
-    self._graph = tf.Graph()
-    self._session = tf.Session(graph=self._graph)
-    try:
-      self._load_and_parse_graph()
-    except (RuntimeError, TypeError, ValueError,
-            tf.errors.OpError) as exception:
-      general_util.reraise_augmented(exception,
-                                     'for saved_model at path %s' % self._path)
+    super(EvalSavedModel, self).__init__()
 
   def _check_version(self, version_node):
     version = self._session.run(version_node)
@@ -100,7 +101,7 @@ class EvalSavedModel(object):
     for label_key, label_value in self._labels_map.items():
       yield 'labels', label_key, label_value  # pytype: disable=bad-return-type
 
-  def _load_and_parse_graph(self):
+  def _construct_graph(self):
     """Actually load and parse the graph.
 
     This is factored out from __init__ in case we want to support delayed-loads
@@ -179,99 +180,6 @@ class EvalSavedModel(object):
           fetches=(self._features_map, self._predictions_map, self._labels_map,
                    self._input_refs_node),
           feed_list=list(self._input_map.values()))
-
-  def graph_as_default(self):
-    return self._graph.as_default()
-
-  def graph_finalize(self):
-    self._graph.finalize()
-
-  def register_additional_metric_ops(
-      self, metric_ops):
-    """Register additional metric ops that were added.
-
-    Args:
-      metric_ops: Dictionary of metric ops, just like in the Trainer.
-
-    Raises:
-      ValueError: One or more of the metric ops already exist in the graph.
-    """
-    for metric_name, (value_op, update_op) in metric_ops.items():
-      if metric_name in self._metric_names:
-        raise ValueError('tried to register new metric with name %s, but a '
-                         'metric with that name already exists.' % metric_name)
-      self._metric_names.append(metric_name)
-      self._metric_value_ops.append(value_op)
-      self._metric_update_ops.append(update_op)
-
-    # Update metric variables incrementally with only the new elements in the
-    # metric_variables collection.
-    collection = self._graph.get_collection(tf.GraphKeys.METRIC_VARIABLES)
-    collection = collection[len(self._metric_variable_nodes):]
-
-    # Note that this is a node_list - it's not something that TFMA
-    # configures, but something that TF.Learn configures.
-    #
-    # As such, we also use graph.get_tensor_by_name directly, instead of
-    # TFMA's version which expects names encoded by TFMA.
-    for node in collection:
-      self._metric_variable_nodes.append(node)
-      with self._graph.as_default():
-        placeholder = tf.placeholder(dtype=node.dtype, shape=node.get_shape())
-        self._metric_variable_placeholders.append(placeholder)
-        self._metric_variable_assign_ops.append(tf.assign(node, placeholder))
-
-    with self._graph.as_default():
-      self._all_metric_variable_assign_ops = tf.group(
-          *self._metric_variable_assign_ops)
-      self._all_metric_update_ops = tf.group(*self._metric_update_ops)
-      self._reset_variables_op = tf.local_variables_initializer()
-      self._session.run(self._reset_variables_op)
-
-    self._metrics_reset_update_get_fn = self._session.make_callable(
-        fetches=[self._all_metric_update_ops, self._metric_variable_nodes],
-        feed_list=self._metrics_reset_update_get_fn_feed_list)
-    self._perform_metrics_update_fn = self._session.make_callable(
-        fetches=self._all_metric_update_ops,
-        feed_list=self._metrics_reset_update_get_fn_feed_list)
-
-  def _log_debug_message_for_tracing_feed_errors(
-      self, fetches,
-      feed_list):
-    """Logs debug message for tracing feed errors."""
-
-    def create_tuple_list(tensor):
-      """Create a list of tuples describing a Tensor."""
-      result = None
-      if isinstance(tensor, tf.Operation):
-        result = [('Op', tensor.name)]
-      elif isinstance(tensor, tf.SparseTensor):
-        result = [
-            ('SparseTensor.indices', tensor.indices.name),
-            ('SparseTensor.values', tensor.values.name),
-            ('SparseTensor.dense_shape', tensor.dense_shape.name),
-        ]
-      elif isinstance(tensor, tf.Tensor):
-        result = [('Tensor', tensor.name)]
-      else:
-        result = [('Unknown', str(tensor))]
-      return result
-
-    def flatten(target):
-      return list(itertools.chain.from_iterable(target))
-
-    def log_list(name, target):
-      tf.logging.info('%s = [', name)
-      for elem_type, elem_name in flatten(
-          [create_tuple_list(x) for x in target]):
-        tf.logging.info('(\'%s\', \'%s\'),', elem_type, elem_name)
-      tf.logging.info(']')
-
-    tf.logging.info('-------------------- fetches and feeds information')
-    log_list('fetches', fetches)
-    tf.logging.info('')
-    log_list('feed_list', feed_list)
-    tf.logging.info('-------------------- end fetches and feeds information')
 
   def get_features_predictions_labels_dicts(
       self):
@@ -410,17 +318,6 @@ class EvalSavedModel(object):
 
     return result
 
-  def _create_feed_for_features_predictions_labels(
-      self, features_predictions_labels
-  ):
-    """Create feed list for feeding the given features, predictions, labels."""
-    result = []
-    for which_map, key, _ in self._iterate_fpl_maps_in_canonical_order():
-      result.append(
-          getattr(features_predictions_labels,
-                  which_map)[key][encoding.NODE_SUFFIX])
-    return result
-
   def _create_feed_for_features_predictions_labels_list(
       self, features_predictions_labels_list
   ):
@@ -434,103 +331,3 @@ class EvalSavedModel(object):
           ]))
     return result
 
-  def perform_metrics_update(
-      self,
-      features_predictions_labels):
-    """Run a single metrics update step on a single FPL."""
-    feed_list = self._create_feed_for_features_predictions_labels(
-        features_predictions_labels)
-    try:
-      self._perform_metrics_update_fn(*feed_list)
-    except (RuntimeError, TypeError, ValueError,
-            tf.errors.OpError) as exception:
-      feed_dict = dict(
-          zip(self._metrics_reset_update_get_fn_feed_list_keys, feed_list))
-      self._log_debug_message_for_tracing_feed_errors(
-          fetches=[self._all_metric_update_ops] + self._metric_variable_nodes,
-          feed_list=self._metrics_reset_update_get_fn_feed_list)
-      general_util.reraise_augmented(
-          exception, 'features_predictions_labels = %s, feed_dict = %s' %
-          (features_predictions_labels, feed_dict))
-
-  def metrics_reset_update_get(
-      self, features_predictions_labels
-  ):
-    """Run the metrics reset, update, get operations on a single FPL."""
-    self.reset_metric_variables()
-    feed_list = self._create_feed_for_features_predictions_labels(
-        features_predictions_labels)
-    try:
-      [_, result] = self._metrics_reset_update_get_fn(*feed_list)
-    except (RuntimeError, TypeError, ValueError,
-            tf.errors.OpError) as exception:
-      feed_dict = dict(
-          zip(self._metrics_reset_update_get_fn_feed_list_keys, feed_list))
-      self._log_debug_message_for_tracing_feed_errors(
-          fetches=[self._all_metric_update_ops],
-          feed_list=self._metrics_reset_update_get_fn_feed_list)
-      general_util.reraise_augmented(
-          exception, 'features_predictions_labels = %s, feed_dict = %s' %
-          (features_predictions_labels, feed_dict))
-    return result
-
-  def metrics_reset_update_get_list(
-      self, features_predictions_labels_list):
-    """Run the metrics reset, update, get operations on a list of FPLs."""
-    self.reset_metric_variables()
-
-    feed_list = self._create_feed_for_features_predictions_labels_list(
-        features_predictions_labels_list)
-    try:
-      [_, result] = self._metrics_reset_update_get_fn(*feed_list)
-    except (RuntimeError, TypeError, ValueError,
-            tf.errors.OpError) as exception:
-      feed_dict = dict(
-          zip(self._metrics_reset_update_get_fn_feed_list_keys, feed_list))
-      self._log_debug_message_for_tracing_feed_errors(
-          fetches=[self._all_metric_update_ops],
-          feed_list=self._metrics_reset_update_get_fn_feed_list)
-      general_util.reraise_augmented(
-          exception, 'features_predictions_labels_list = %s, feed_dict = %s' %
-          (features_predictions_labels_list, feed_dict))
-
-    return result
-
-  def get_metric_variables(self):
-    """Returns a list containing the metric variable values."""
-    result = self._session.run(fetches=self._metric_variable_nodes)
-    return result
-
-  def _create_feed_for_metric_variables(
-      self, metric_variable_values):
-    """Returns a feed dict for feeding metric variables values to set them.
-
-    Args:
-      metric_variable_values: Metric variable values retrieved using
-        get_metric_variables, for instance.
-
-    Returns:
-      A feed dict for feeding metric variables values to the placeholders
-      constructed for setting the metric variable values to the fed values.
-    """
-    result = {}
-    for node, value in zip(self._metric_variable_placeholders,
-                           metric_variable_values):
-      result[node] = value
-    return result
-
-  def set_metric_variables(self, metric_variable_values):
-    """Set metric variable values to the given values."""
-    self._session.run(
-        fetches=self._all_metric_variable_assign_ops,
-        feed_dict=self._create_feed_for_metric_variables(
-            metric_variable_values))
-
-  def reset_metric_variables(self):
-    """Reset metric variable values to their initial values."""
-    self._session.run(self._reset_variables_op)
-
-  def get_metric_values(self):
-    """Retrieve metric values."""
-    metric_values = self._session.run(fetches=self._metric_value_ops)
-    return dict(zip(self._metric_names, metric_values))

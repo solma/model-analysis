@@ -24,6 +24,12 @@ UNKNOWN_EVAL_MODE = 'unknown_eval_mode'
 MODEL_CENTRIC_MODE = 'model_centric_mode'
 DATA_CENTRIC_MODE = 'data_centric_mode'
 
+# Types of placeholders
+PLACEHOLDER = 'placeholder'
+SPARSE_PLACEHOLDER = 'sparse_placeholder'
+
+METRICS_NAMESPACE = 'tensorflow_model_analysis'
+
 # Keys for Extracts dictionary.
 
 # Input key. Could be a serialised tf.train.Example, a CSV row, JSON data, etc
