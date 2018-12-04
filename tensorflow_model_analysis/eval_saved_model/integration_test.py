@@ -181,18 +181,21 @@ class IntegrationTest(testutil.TensorflowModelAnalysisTest):
 
     # Check that SparseFeatures were correctly populated.
     self.assertAllEqual(
-        np.array([b'cat'], dtype=np.object), features_predictions_labels_list[0]
-        .features['animals'][encoding.NODE_SUFFIX].values)
+        np.array([b'cat'], dtype=np.object),
+        features_predictions_labels_list[0].features['animals'][
+            encoding.NODE_SUFFIX].values)
     self.assertAllEqual(
-        np.array([b'dog'], dtype=np.object), features_predictions_labels_list[1]
-        .features['animals'][encoding.NODE_SUFFIX].values)
+        np.array([b'dog'], dtype=np.object),
+        features_predictions_labels_list[1].features['animals'][
+            encoding.NODE_SUFFIX].values)
     self.assertAllEqual(
         np.array([b'cat', b'dog'], dtype=np.object),
         features_predictions_labels_list[2].features['animals'][
             encoding.NODE_SUFFIX].values)
     self.assertAllEqual(
-        np.array([], dtype=np.object), features_predictions_labels_list[3]
-        .features['animals'][encoding.NODE_SUFFIX].values)
+        np.array([], dtype=np.object),
+        features_predictions_labels_list[3].features['animals'][
+            encoding.NODE_SUFFIX].values)
 
     eval_saved_model.metrics_reset_update_get_list(
         features_predictions_labels_list)
@@ -229,20 +232,20 @@ class IntegrationTest(testutil.TensorflowModelAnalysisTest):
 
     self.assertAllEqual(
         np.array([[[1, 1, 1], [0, 0, 0], [0, 0, 0]]], dtype=np.float64),
-        features_predictions_labels_list[0].features['embedding'][encoding
-                                                                  .NODE_SUFFIX])
+        features_predictions_labels_list[0].features['embedding'][
+            encoding.NODE_SUFFIX])
     self.assertAllEqual(
         np.array([[[0, 0, 0], [3, 3, 3], [0, 0, 0]]], dtype=np.float64),
-        features_predictions_labels_list[1].features['embedding'][encoding
-                                                                  .NODE_SUFFIX])
+        features_predictions_labels_list[1].features['embedding'][
+            encoding.NODE_SUFFIX])
     self.assertAllEqual(
         np.array([[[2, 2, 2], [0, 0, 0], [5, 5, 5]]], dtype=np.float64),
-        features_predictions_labels_list[2].features['embedding'][encoding
-                                                                  .NODE_SUFFIX])
+        features_predictions_labels_list[2].features['embedding'][
+            encoding.NODE_SUFFIX])
     self.assertAllEqual(
         np.array([[[5, 5, 5], [7, 7, 7], [11, 11, 11]]], dtype=np.float64),
-        features_predictions_labels_list[3].features['embedding'][encoding
-                                                                  .NODE_SUFFIX])
+        features_predictions_labels_list[3].features['embedding'][
+            encoding.NODE_SUFFIX])
 
     def to_dense(sparse_tensor_value):
       sess = tf.Session()

@@ -9,6 +9,7 @@
   TF 2.0.
 
 ## Breaking changes
+
 *  Moved tfma.SingleSliceSpec to tfma.slicer.SingleSliceSpec.
 
 ## Deprecations

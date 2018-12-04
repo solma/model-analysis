@@ -23,7 +23,7 @@ from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import constants
-from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import slice as slice_api
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.extractors import meta_feature_extractor
@@ -40,7 +40,7 @@ def make_features_dict(features_dict):
 
 def create_fpls():
   """Create test FPL dicts that can be used for verification."""
-  fpl1 = api_types.FeaturesPredictionsLabels(
+  fpl1 = types.FeaturesPredictionsLabels(
       input_ref=0,
       features=make_features_dict({
           'gender': ['f'],
@@ -50,10 +50,8 @@ def create_fpls():
       predictions=make_features_dict({
           'kb': [1],
       }),
-      labels=make_features_dict({
-          'ad_risk_score': [0]
-      }))
-  fpl2 = api_types.FeaturesPredictionsLabels(
+      labels=make_features_dict({'ad_risk_score': [0]}))
+  fpl2 = types.FeaturesPredictionsLabels(
       input_ref=1,
       features=make_features_dict({
           'gender': ['m'],
@@ -63,9 +61,7 @@ def create_fpls():
       predictions=make_features_dict({
           'kb': [1],
       }),
-      labels=make_features_dict({
-          'ad_risk_score': [0]
-      }))
+      labels=make_features_dict({'ad_risk_score': [0]}))
   return [fpl1, fpl2]
 
 
@@ -170,7 +166,7 @@ class MetaFeatureExtractorTest(testutil.TensorflowModelAnalysisTest):
         indices=[[0, 0, 0], [0, 1, 0], [0, 1, 1]],
         values=['', 'one', 'two'],
         dense_shape=[1, 2, 2])
-    fpl_with_sparse_tensor = api_types.FeaturesPredictionsLabels(
+    fpl_with_sparse_tensor = types.FeaturesPredictionsLabels(
         input_ref=0, features={}, predictions={}, labels={})
 
     meta_feature_extractor._set_feature_value(fpl_with_sparse_tensor.features,

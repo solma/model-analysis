@@ -371,8 +371,11 @@ def _sparse_slice_rows(
     # We treat each split SparseTensorValue as having dense_shape equal to the
     # maximum index in each dimension (+1 for zero-index).
     if indices:
-      dense_shape[1:] = [max([index[i] for index in indices]) + 1
-                         for i in range(1, len(indices[0]))]
+      dense_shape[1:] = [
+          max([index[i]
+               for index in indices]) + 1
+          for i in range(1, len(indices[0]))
+      ]
     # For empty examples, we should have 0 in all other dimensions for the
     # dense_shape.
     else:
@@ -417,8 +420,8 @@ def split_tensor_value(
                     (type(tensor_value), tensor_value))
 
 
-def merge_tensor_values(tensor_values
-                       ):
+def merge_tensor_values(
+    tensor_values):
   """Merge a list of Tensor values into a single batch of Tensor values.
 
   Args:

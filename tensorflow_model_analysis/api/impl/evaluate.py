@@ -25,8 +25,8 @@ import apache_beam as beam
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import aggregate
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.api.impl import slice as slice_api
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import feature_extractor
 from tensorflow_model_analysis.extractors import predict_extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
@@ -52,8 +52,8 @@ def Extract(examples_and_extracts,
   """Performs Extractions serially in provided order."""
   augmented = examples_and_extracts
 
-  for extractor in extractors:
-    augmented = augmented | extractor.stage_name >> extractor.ptransform
+  for e in extractors:
+    augmented = augmented | e.stage_name >> e.ptransform
 
   return augmented
 

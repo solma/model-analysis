@@ -36,14 +36,20 @@ TensorTypeMaybeDict = Union[TensorType, DictOfTensorType]
 KeyType = Union[Text, Tuple[Text, Ellipsis]]
 
 # Value of a Tensor fetched using session.run.
-FetchedTensorValue = Union[tf.SparseTensorValue, np.ndarray]
+TensorValue = Union[tf.SparseTensorValue, np.ndarray]
 
 # Dictionary of Tensor values fetched.
 # The dictionary maps original dictionary keys => ('node' => value).
-DictOfFetchedTensorValues = Dict[KeyType, Dict[Text, FetchedTensorValue]]
+DictOfFetchedTensorValues = Dict[KeyType, Dict[Text, TensorValue]]
 
 MetricVariablesType = List[Any]
 
+
+FeaturesPredictionsLabels = NamedTuple(
+    'FeaturesPredictionsLabels', [('input_ref', int),
+                                  ('features', DictOfFetchedTensorValues),
+                                  ('predictions', DictOfFetchedTensorValues),
+                                  ('labels', DictOfFetchedTensorValues)])
 
 # Used in building the model diagnostics table, a MaterializedColumn is a value
 # inside of Extracts that will be emitted to file. Note that for strings, the

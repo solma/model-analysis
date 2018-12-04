@@ -38,7 +38,6 @@ import tensorflow as tf
 
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis import util as general_util
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import constants
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.eval_saved_model import util
@@ -292,7 +291,8 @@ class EvalMetricsGraph(object):
 
   @abc.abstractmethod
   def _create_feed_for_features_predictions_labels_list(
-      self, features_predictions_labels_list
+      self,
+      features_predictions_labels_list
   ):
     raise NotImplementedError
 
@@ -322,7 +322,9 @@ class EvalMetricsGraph(object):
     return self.metrics_reset_update_get_list([features_predictions_labels])
 
   def metrics_reset_update_get_list(
-      self, features_predictions_labels_list):
+      self,
+      features_predictions_labels_list
+  ):
     """Run the metrics reset, update, get operations on a list of FPLs."""
     self.reset_metric_variables()
 

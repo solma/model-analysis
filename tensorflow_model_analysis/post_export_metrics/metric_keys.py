@@ -62,7 +62,6 @@ PRECISION_RECALL_AT_K = add_metric_prefix('precision_recall_at_k')
 PRECISION_AT_K = add_metric_prefix('precision_at_k')  # Output-only
 RECALL_AT_K = add_metric_prefix('recall_at_k')  # Output-only
 
-
 # keys where the corresponding values are results for plots
 PLOT_KEYS = [
     CALIBRATION_PLOT_MATRICES, CALIBRATION_PLOT_BOUNDARIES, AUC_PLOTS_MATRICES,

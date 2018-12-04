@@ -24,7 +24,6 @@ import tensorflow as tf
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.extractors import feature_extractor
@@ -82,7 +81,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
         constants.INPUT_KEY:
             example1.SerializeToString(),
         constants.FEATURES_PREDICTIONS_LABELS_KEY:
-            api_types.FeaturesPredictionsLabels(
+            types.FeaturesPredictionsLabels(
                 input_ref=0,
                 features=features,
                 predictions=predictions,

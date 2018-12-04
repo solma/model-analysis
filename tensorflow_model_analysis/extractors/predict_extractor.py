@@ -25,8 +25,8 @@ import apache_beam as beam
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import dofn
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import feature_extractor
 from tensorflow_model_analysis.types_compat import Generator, List, Optional
 
@@ -52,7 +52,7 @@ def PredictExtractor(eval_shared_model,
     Extractor for extracting features, predictions, and labels during predict.
   """
   # pylint: disable=no-value-for-parameter
-  return api_types.Extractor(
+  return extractor.Extractor(
       stage_name='Predict',
       ptransform=TFMAPredict(
           eval_shared_model=eval_shared_model,

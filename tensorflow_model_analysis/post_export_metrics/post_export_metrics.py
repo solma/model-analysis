@@ -303,9 +303,8 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
     """
     pass
 
-  def populate_plots_and_pop(
-      self, plots,
-      output_plots):
+  def populate_plots_and_pop(self, plots,
+                             output_plots):
     """Converts the metric in `plots` to `output_plots` and pops.
 
     Please override the method if the metric is plot type. The plot should also
@@ -379,8 +378,10 @@ class _ExampleCount(_PostExportMetric):
                         'Defaulting to the empty Tensor.')
         ref_tensor = tf.constant([])
 
-    return {self._metric_key(metric_keys.EXAMPLE_COUNT):
-                metrics.total(tf.shape(ref_tensor)[0])}
+    return {
+        self._metric_key(metric_keys.EXAMPLE_COUNT):
+            metrics.total(tf.shape(ref_tensor)[0])
+    }
 
 
 @_export('example_weight')
@@ -390,7 +391,8 @@ class _ExampleWeight(_PostExportMetric):
   _labels_key = Ellipsis  # type: Text
   _metric_tag = Ellipsis  # type: Text
 
-  def __init__(self, example_weight_key,
+  def __init__(self,
+               example_weight_key,
                metric_tag = None):
     """Create a metric that computes the sum of example weights.
 
@@ -501,9 +503,8 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
             tf.no_op()),
     }
 
-  def populate_plots_and_pop(
-      self, plots,
-      output_plots):
+  def populate_plots_and_pop(self, plots,
+                             output_plots):
     matrices = plots.pop(
         self._metric_key(metric_keys.CALIBRATION_PLOT_MATRICES))
     boundaries = plots.pop(
@@ -659,8 +660,8 @@ def _create_confusion_matrix_proto(
     matrix, threshold
 ):
   """Populates matrix proto values from value_op matrix."""
-  output_matrix = (metrics_pb2.ConfusionMatrixAtThresholds
-                   .ConfusionMatrixAtThreshold())
+  output_matrix = (
+      metrics_pb2.ConfusionMatrixAtThresholds.ConfusionMatrixAtThreshold())
   output_matrix.threshold = threshold
   output_matrix.false_negatives = matrix[0]
   output_matrix.true_negatives = matrix[1]
@@ -682,6 +683,8 @@ class _ConfusionMatrixAtThresholds(_ConfusionMatrixBasedMetric):
                     ):
     value_op, update_op = self.joined_confusion_matrix_metric_ops(
         features_dict, predictions_dict, labels_dict)
+    # The format and lint tools don't agree on the formatting here.
+    # pyformat: disable
     return {
         self._metric_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_MATRICES): (
             value_op, update_op),
@@ -689,6 +692,7 @@ class _ConfusionMatrixAtThresholds(_ConfusionMatrixBasedMetric):
             metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS): (
                 tf.identity(self._thresholds), tf.no_op()),
     }
+    # pyformat: enable
 
   def populate_stats_and_pop(
       self, combine_metrics,
@@ -770,9 +774,8 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
             self._thresholds), tf.no_op()),
     }
 
-  def populate_plots_and_pop(
-      self, plots,
-      output_plots):
+  def populate_plots_and_pop(self, plots,
+                             output_plots):
     matrices = plots.pop(self._metric_key(metric_keys.AUC_PLOTS_MATRICES))
     thresholds = plots.pop(self._metric_key(metric_keys.AUC_PLOTS_THRESHOLDS))
     if len(matrices) != len(thresholds):
@@ -1006,8 +1009,8 @@ class _PrecisionRecallAtK(_PostExportMetric):
 
     # Expand dims if necessary.
     labels = tf.cond(
-        tf.equal(tf.rank(labels), 1), lambda: tf.expand_dims(labels, -1),
-        lambda: labels)
+        tf.equal(tf.rank(labels),
+                 1), lambda: tf.expand_dims(labels, -1), lambda: labels)
 
     classes = predictions_dict[self._classes_key]
     scores = predictions_dict[self._probabilities_key]

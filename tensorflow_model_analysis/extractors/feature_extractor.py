@@ -26,8 +26,8 @@ import tensorflow as tf
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import encoding
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.types_compat import Any, Dict, Text
 
 # For now, we store only the first N sparse keys in our diagnostics table.
@@ -36,7 +36,7 @@ _MAX_SPARSE_FEATURES_PER_COLUMN = 10
 
 def FeatureExtractor():
   # pylint: disable=no-value-for-parameter
-  return api_types.Extractor(
+  return extractor.Extractor(
       stage_name='ExtractFeatures', ptransform=ExtractFeatures())
   # pylint: enable=no-value-for-parameter
 
@@ -94,7 +94,7 @@ def _MaterializeFeatures(extracts):
   if not fpl:
     raise RuntimeError('FPL missing, Please ensure _Predict() was called.')
 
-  if not isinstance(fpl, api_types.FeaturesPredictionsLabels):
+  if not isinstance(fpl, types.FeaturesPredictionsLabels):
     raise TypeError(
         'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: %s '
         'of type %s' % (str(fpl), type(fpl)))

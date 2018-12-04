@@ -23,7 +23,6 @@ import itertools
 import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import constants
 from tensorflow_model_analysis.eval_saved_model import encoding
@@ -310,7 +309,7 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
             encoding.NODE_SUFFIX: split_predictions[prediction_key][i]
         }
       result.append(
-          api_types.FeaturesPredictionsLabels(
+          types.FeaturesPredictionsLabels(
               input_ref=input_ref,
               features=features,
               predictions=predictions,
@@ -319,7 +318,8 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
     return result
 
   def _create_feed_for_features_predictions_labels_list(
-      self, features_predictions_labels_list
+      self,
+      features_predictions_labels_list
   ):
     """Create feed list for feeding a list of features, predictions, labels."""
     result = []
@@ -330,4 +330,3 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
               for fpl in features_predictions_labels_list
           ]))
     return result
-

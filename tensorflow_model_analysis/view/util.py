@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 import os
 
-from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis.api import model_eval_lib
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Text, Tuple, Union
 

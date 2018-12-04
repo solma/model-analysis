@@ -124,9 +124,8 @@ def load_legacy_inputs(
     # EvalInputReceiver. In that case, we default to a tensor of range(0,
     # len(input_example)).
     input_refs_node = tf.range(tf.size(input_node))
-  inputs_map = collections.OrderedDict({
-      list(signature_def.inputs.keys())[0]: input_node
-  })
+  inputs_map = collections.OrderedDict(
+      {list(signature_def.inputs.keys())[0]: input_node})
   return (inputs_map, input_refs_node)
 
 

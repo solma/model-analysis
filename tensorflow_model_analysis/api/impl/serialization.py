@@ -18,60 +18,15 @@ from __future__ import division
 
 from __future__ import print_function
 
-import os
-import pickle
 import apache_beam as beam
 import numpy as np
 import six
 import tensorflow as tf
 
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis import version as tfma_version
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, Dict, List, Text, Tuple
-
-# File names for files written out to the result directory.
-_METRICS_OUTPUT_FILE = 'metrics'
-_PLOTS_OUTPUT_FILE = 'plots'
-_EVAL_CONFIG_FILE = 'eval_config'
-
-# Keys for the serialized final dictionary.
-_SLICE_METRICS_LIST_KEY = 'slice_metrics_list'
-_VERSION_KEY = 'tfma_version'
-_METRICS_TYPE_KEY = 'metrics_type'
-_EVAL_CONFIG_KEY = 'eval_config'
-
-
-def _serialize_eval_config(eval_config):
-  final_dict = {}
-  final_dict[_VERSION_KEY] = tfma_version.VERSION_STRING
-  final_dict[_EVAL_CONFIG_KEY] = eval_config
-  return pickle.dumps(final_dict)
-
-
-def _deserialize_eval_config_raw(serialized):
-  return pickle.loads(serialized)
-
-
-def _check_version(raw_final_dict, path):
-  version = raw_final_dict.get(_VERSION_KEY)
-  if version is None:
-    raise ValueError(
-        'could not find TFMA version in raw deserialized dictionary for '
-        'file at %s' % path)
-  # We don't actually do any checking for now, since we don't have any
-  # compatibility issues.
-
-
-def load_eval_config(output_path):
-  serialized_record = six.next(
-      tf.python_io.tf_record_iterator(
-          os.path.join(output_path, _EVAL_CONFIG_FILE)))
-  final_dict = _deserialize_eval_config_raw(serialized_record)
-  _check_version(final_dict, output_path)
-  return final_dict[_EVAL_CONFIG_KEY]
 
 
 def deserialize_slice_key(
@@ -102,7 +57,7 @@ def deserialize_slice_key(
   return tuple(result)
 
 
-def _load_and_deserialize_metrics(
+def load_and_deserialize_metrics(
     path):
   result = []
   for record in tf.python_io.tf_record_iterator(path):
@@ -113,7 +68,7 @@ def _load_and_deserialize_metrics(
   return result
 
 
-def _load_and_deserialize_plots(
+def load_and_deserialize_plots(
     path):
   """Returns deserialized plots loaded from given path."""
   result = []
@@ -123,16 +78,6 @@ def _load_and_deserialize_plots(
         deserialize_slice_key(plots_for_slice.slice_key),  # pytype: disable=wrong-arg-types
         plots_for_slice.plot_data))
   return result
-
-
-def load_plots_and_metrics(
-    output_path
-):
-  slicing_metrics = _load_and_deserialize_metrics(
-      path=os.path.join(output_path, _METRICS_OUTPUT_FILE))
-  plots = _load_and_deserialize_plots(
-      path=os.path.join(output_path, _PLOTS_OUTPUT_FILE))
-  return slicing_metrics, plots
 
 
 def _convert_slice_key(
@@ -292,7 +237,10 @@ class SerializeMetricsAndPlots(beam.PTransform):  # pylint: disable=invalid-name
   def __init__(self, post_export_metrics):
     self._post_export_metrics = post_export_metrics
 
-  def expand(self, metrics_and_plots):
+  def expand(
+      self,
+      metrics_and_plots
+  ):
     """Converts the given metrics_and_plots into serialized proto.
 
     Args:
@@ -307,48 +255,3 @@ class SerializeMetricsAndPlots(beam.PTransform):  # pylint: disable=invalid-name
     plots = plots | 'SerializePlots' >> beam.Map(
         _serialize_plots, post_export_metrics=self._post_export_metrics)
     return (metrics, plots)
-
-
-@beam.typehints.with_output_types(beam.pvalue.PDone)
-class WriteMetricsPlotsAndConfig(beam.PTransform):
-  """Writes metrics, plots and config to the given path.
-
-  This is the internal implementation. Users should call
-  tfma.ExtractEvaluateAndWriteResults() instead, which calls this.
-  """
-
-  def __init__(self, output_path,
-               eval_config):
-    self._output_path = output_path
-    self._eval_config = eval_config
-
-  def expand(
-      self,
-      metrics_and_plots
-  ):
-    metrics_output_file = os.path.join(self._output_path, _METRICS_OUTPUT_FILE)
-    plots_output_file = os.path.join(self._output_path, _PLOTS_OUTPUT_FILE)
-    eval_config_file = os.path.join(self._output_path, _EVAL_CONFIG_FILE)
-
-    metrics, plots = metrics_and_plots
-    if metrics.pipeline != plots.pipeline:
-      raise ValueError('metrics and plots should come from the same pipeline '
-                       'but pipelines were metrics: %s and plots: %s' %
-                       (metrics.pipeline, plots.pipeline))
-    _ = (
-        metrics
-        | 'WriteMetricsToFile' >> beam.io.WriteToTFRecord(
-            metrics_output_file, shard_name_template=''))
-    _ = (
-        plots
-        | 'WritePlotsToFile' >> beam.io.WriteToTFRecord(
-            plots_output_file, shard_name_template=''))
-
-    _ = (
-        metrics.pipeline
-        | 'CreateEvalConfig' >> beam.Create(
-            [_serialize_eval_config(self._eval_config)])
-        | 'WriteEvalConfig' >> beam.io.WriteToTFRecord(
-            eval_config_file, shard_name_template=''))
-
-    return beam.pvalue.PDone(metrics.pipeline)  # pytype: disable=bad-return-type

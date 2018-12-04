@@ -24,7 +24,6 @@ import apache_beam as beam
 import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import dofn
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import util
@@ -161,10 +160,10 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
     self.assertEqual(0, fpls[0].input_ref)
     return fpls[0]
 
-  def predict_injective_example_list(
-      self, eval_saved_model,
-      raw_example_bytes_list
-  ):
+  def predict_injective_example_list(self,
+                                     eval_saved_model,
+                                     raw_example_bytes_list
+                                    ):
     """Run predict_list for a list of examples for a injective model.
 
     Args:
@@ -179,7 +178,6 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
 
     # Check that each FPL corresponds to one example.
     self.assertSequenceEqual(
-        range(0, len(raw_example_bytes_list)),
-        [fpl.input_ref for fpl in fpls])
+        range(0, len(raw_example_bytes_list)), [fpl.input_ref for fpl in fpls])
 
     return fpls

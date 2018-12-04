@@ -24,7 +24,6 @@ import apache_beam as beam
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Generator, Text, Tuple
 
@@ -38,8 +37,7 @@ _METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
-)
+    beam.typehints.Tuple[_BeamSliceKeyType, types.FeaturesPredictionsLabels])
 class _FanoutSlicesDoFn(beam.DoFn):
   """A DoFn that performs per-slice key fanout prior to computing aggregates."""
 
@@ -54,7 +52,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
     fpl = element.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
     if not fpl:
       raise RuntimeError('FPL missing, Please ensure Predict() was called.')
-    if not isinstance(fpl, api_types.FeaturesPredictionsLabels):
+    if not isinstance(fpl, types.FeaturesPredictionsLabels):
       raise TypeError(
           'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: '
           '%s of type %s' % (str(fpl), type(fpl)))
@@ -73,8 +71,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
 @beam.ptransform_fn
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
-)  # pylint: disable=invalid-name
+    beam.typehints.Tuple[_BeamSliceKeyType, types.FeaturesPredictionsLabels])  # pylint: disable=invalid-name
 def FanoutSlices(pcoll):
   """Fan out examples based on the slice keys."""
   result = pcoll | 'DoSlicing' >> beam.ParDo(_FanoutSlicesDoFn())

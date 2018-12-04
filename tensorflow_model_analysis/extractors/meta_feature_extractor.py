@@ -30,7 +30,6 @@ import tensorflow as tf
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.types_compat import Any, Callable, Text
 
@@ -55,8 +54,7 @@ def _set_feature_value(features,
   return features  # pytype: disable=bad-return-type
 
 
-def get_fpl_copy(
-    extracts):
+def get_fpl_copy(extracts):
   """Get a copy of the FPL in the extracts of extracts."""
   fpl_orig = extracts.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
   if not fpl_orig:
@@ -64,7 +62,7 @@ def get_fpl_copy(
 
   # We must make a copy of the FPL tuple as well, so that we don't mutate the
   # original which is disallowed by Beam.
-  fpl_copy = api_types.FeaturesPredictionsLabels(
+  fpl_copy = types.FeaturesPredictionsLabels(
       features=copy.copy(fpl_orig.features),
       labels=fpl_orig.labels,
       predictions=fpl_orig.predictions,

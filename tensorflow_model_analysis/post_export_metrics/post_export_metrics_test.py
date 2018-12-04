@@ -160,12 +160,14 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         self._makeExample(age=5.0, language='chinese', label=0.0)
     ]
     expected_values_dict = {
-        metric_keys.EXAMPLE_COUNT: 4.0,
-        metric_keys.EXAMPLE_WEIGHT: 15.0,
-        metric_keys.add_metric_prefix(
-            metric_keys.EXAMPLE_COUNT, 'my_tag'): 4.0,
-        metric_keys.add_metric_prefix(
-            metric_keys.EXAMPLE_WEIGHT, 'my_tag'): 15.0,
+        metric_keys.EXAMPLE_COUNT:
+            4.0,
+        metric_keys.EXAMPLE_WEIGHT:
+            15.0,
+        metric_keys.add_metric_prefix(metric_keys.EXAMPLE_COUNT, 'my_tag'):
+            4.0,
+        metric_keys.add_metric_prefix(metric_keys.EXAMPLE_WEIGHT, 'my_tag'):
+            15.0,
     }
     self._runTest(examples, eval_export_dir, [
         post_export_metrics.example_count(),
@@ -728,8 +730,8 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
             [7.0, 3.0, 0.0, 0.0, float('nan'), 0.0])
         self.assertIn(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS,
                       value)
-        thresholds = value[metric_keys
-                           .CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS]
+        thresholds = value[
+            metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS]
         self.assertAlmostEqual(-1e-6, thresholds[0])
         self.assertAlmostEqual(0.0, thresholds[1])
         self.assertAlmostEqual(0.7, thresholds[2])
@@ -785,8 +787,8 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
             [2.0, 1.0, 0.0, 0.0, float('nan'), 0.0])
         self.assertIn(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS,
                       value)
-        thresholds = value[metric_keys
-                           .CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS]
+        thresholds = value[
+            metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS]
         self.assertAlmostEqual(0.25, thresholds[0])
         self.assertAlmostEqual(0.75, thresholds[1])
         self.assertAlmostEqual(1.00, thresholds[2])

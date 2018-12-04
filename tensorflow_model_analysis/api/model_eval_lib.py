@@ -18,24 +18,176 @@ from __future__ import division
 
 from __future__ import print_function
 
+import os
+import pickle
 import tempfile
 
-import apache_beam as beam
-import tensorflow as tf
 
+
+import apache_beam as beam
+import six
+import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis import version as tfma_version
 from tensorflow_model_analysis.api.impl import evaluate
 from tensorflow_model_analysis.api.impl import serialization
 from tensorflow_model_analysis.eval_saved_model import dofn
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import predict_extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.slicer import slicer
-from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Text
+from tensorflow_model_analysis.types_compat import Any, Dict, List, NamedTuple, Optional, Text, Tuple
+
 from google.protobuf import json_format
+
+# File names for files written out to the result directory.
+_METRICS_OUTPUT_FILE = 'metrics'
+_PLOTS_OUTPUT_FILE = 'plots'
+_EVAL_CONFIG_FILE = 'eval_config'
+
+# Keys for the serialized final dictionary.
+_VERSION_KEY = 'tfma_version'
+_EVAL_CONFIG_KEY = 'eval_config'
+
+
+def _assert_tensorflow_version():
+  """Check that we're using a compatible TF version."""
+  # Fail with a clear error in case we are not using a compatible TF version.
+  major, minor, _ = tf.__version__.split('.')
+  major = int(major)
+  minor = int(minor)
+  okay = True
+  if major != 1:
+    okay = False
+  if minor < 11:
+    okay = False
+  if not okay:
+    raise RuntimeError(
+        'Tensorflow version >= 1.11, < 2 is required. Found (%s). Please '
+        'install the latest 1.x version from '
+        'https://github.com/tensorflow/tensorflow. ' % tf.__version__)
+
+
+EvalConfig = NamedTuple(  # pylint: disable=invalid-name
+    'EvalConfig',
+    [
+        ('model_location',
+         Text),  # The location of the model used for this evaluation
+        ('data_location',
+         Text),  # The location of the data used for this evaluation
+        ('slice_spec', Optional[List[slicer.SingleSliceSpec]]
+        ),  # The corresponding slice spec
+        ('example_weight_metric_key',
+         Text),  # The name of the metric that contains example weight
+    ])
+
+
+def _check_version(raw_final_dict, path):
+  version = raw_final_dict.get(_VERSION_KEY)
+  if version is None:
+    raise ValueError(
+        'could not find TFMA version in raw deserialized dictionary for '
+        'file at %s' % path)
+  # We don't actually do any checking for now, since we don't have any
+  # compatibility issues.
+
+
+def _serialize_eval_config(eval_config):
+  final_dict = {}
+  final_dict[_VERSION_KEY] = tfma_version.VERSION_STRING
+  final_dict[_EVAL_CONFIG_KEY] = eval_config
+  return pickle.dumps(final_dict)
+
+
+def load_eval_config(output_path):
+  serialized_record = six.next(
+      tf.python_io.tf_record_iterator(
+          os.path.join(output_path, _EVAL_CONFIG_FILE)))
+  final_dict = pickle.loads(serialized_record)
+  _check_version(final_dict, output_path)
+  return final_dict[_EVAL_CONFIG_KEY]
+
+
+EvalResult = NamedTuple(  # pylint: disable=invalid-name
+    'EvalResult',
+    [('slicing_metrics', List[Tuple[slicer.SliceKeyType, Dict[Text, Any]]]),
+     ('plots', List[Tuple[slicer.SliceKeyType, Dict[Text, Any]]]),
+     ('config', EvalConfig)])
+
+
+class EvalResults(object):
+  """Class for results from multiple model analysis run."""
+
+  def __init__(self,
+               results,
+               mode = constants.UNKNOWN_EVAL_MODE):
+    supported_modes = [
+        constants.DATA_CENTRIC_MODE,
+        constants.MODEL_CENTRIC_MODE,
+    ]
+    if mode not in supported_modes:
+      raise ValueError('Mode ' + mode + ' must be one of ' +
+                       Text(supported_modes))
+
+    self._results = results
+    self._mode = mode
+
+  def get_results(self):
+    return self._results
+
+  def get_mode(self):
+    return self._mode
+
+
+def make_eval_results(results, mode):
+  """Run model analysis for a single model on multiple data sets.
+
+  Args:
+    results: A list of TFMA evaluation results.
+    mode: The mode of the evaluation. Currently, tfma.DATA_CENTRIC_MODE and
+      tfma.MODEL_CENTRIC_MODE are supported.
+
+  Returns:
+    An EvalResults containing all evaluation results. This can be used to
+    construct a time series view.
+  """
+  return EvalResults(results, mode)
+
+
+def load_eval_results(output_paths, mode):
+  """Run model analysis for a single model on multiple data sets.
+
+  Args:
+    output_paths: A list of output paths of completed tfma runs.
+    mode: The mode of the evaluation. Currently, tfma.DATA_CENTRIC_MODE and
+      tfma.MODEL_CENTRIC_MODE are supported.
+
+  Returns:
+    An EvalResults containing the evaluation results serialized at output_paths.
+    This can be used to construct a time series view.
+  """
+  results = [load_eval_result(output_path) for output_path in output_paths]
+  return make_eval_results(results, mode)
+
+
+def load_eval_result(output_path):
+  """Creates an EvalResult object for use with the visualization functions."""
+  metrics_proto_list = serialization.load_and_deserialize_metrics(
+      path=os.path.join(output_path, _METRICS_OUTPUT_FILE))
+  plots_proto_list = serialization.load_and_deserialize_plots(
+      path=os.path.join(output_path, _PLOTS_OUTPUT_FILE))
+
+  slicing_metrics = [(key, _convert_metric_map_to_dict(metrics_data))
+                     for key, metrics_data in metrics_proto_list]
+  plots = [(key, json_format.MessageToDict(plot_data))
+           for key, plot_data in plots_proto_list]
+
+  eval_config = load_eval_config(output_path)
+  return EvalResult(
+      slicing_metrics=slicing_metrics, plots=plots, config=eval_config)
 
 
 def default_eval_shared_model(
@@ -167,37 +319,48 @@ def _convert_metric_map_to_dict(metric_map):
   return {k: json_format.MessageToDict(metric_map[k]) for k in metric_map}
 
 
-def load_eval_result(output_path):
-  """Creates an EvalResult object for use with the visualization functions."""
-  metrics_proto_list, plots_proto_list = serialization.load_plots_and_metrics(
-      output_path)
+@beam.typehints.with_output_types(beam.pvalue.PDone)
+class WriteMetricsPlotsAndConfig(beam.PTransform):
+  """Writes metrics, plots and config to the given path.
 
-  slicing_metrics = [(key, _convert_metric_map_to_dict(metrics_data))
-                     for key, metrics_data in metrics_proto_list]
-  plots = [(key, json_format.MessageToDict(plot_data))
-           for key, plot_data in plots_proto_list]
+  Typically users should call tfma.ExtractEvaluateAndWriteResults() instead,
+  which calls this.
+  """
 
-  eval_config = serialization.load_eval_config(output_path)
-  return api_types.EvalResult(
-      slicing_metrics=slicing_metrics, plots=plots, config=eval_config)
+  def __init__(self, output_path, eval_config):
+    self._output_path = output_path
+    self._eval_config = eval_config
 
+  def expand(
+      self,
+      metrics_and_plots
+  ):
+    metrics_output_file = os.path.join(self._output_path, _METRICS_OUTPUT_FILE)
+    plots_output_file = os.path.join(self._output_path, _PLOTS_OUTPUT_FILE)
+    eval_config_file = os.path.join(self._output_path, _EVAL_CONFIG_FILE)
 
-def _assert_tensorflow_version():
-  """Check that we're using a compatible TF version."""
-  # Fail with a clear error in case we are not using a compatible TF version.
-  major, minor, _ = tf.__version__.split('.')
-  major = int(major)
-  minor = int(minor)
-  okay = True
-  if major != 1:
-    okay = False
-  if minor < 11:
-    okay = False
-  if not okay:
-    raise RuntimeError(
-        'Tensorflow version >= 1.11, < 2 is required. Found (%s). Please '
-        'install the latest 1.x version from '
-        'https://github.com/tensorflow/tensorflow. ' % tf.__version__)
+    metrics, plots = metrics_and_plots
+    if metrics.pipeline != plots.pipeline:
+      raise ValueError('metrics and plots should come from the same pipeline '
+                       'but pipelines were metrics: %s and plots: %s' %
+                       (metrics.pipeline, plots.pipeline))
+    _ = (
+        metrics
+        | 'WriteMetricsToFile' >> beam.io.WriteToTFRecord(
+            metrics_output_file, shard_name_template=''))
+    _ = (
+        plots
+        | 'WritePlotsToFile' >> beam.io.WriteToTFRecord(
+            plots_output_file, shard_name_template=''))
+
+    _ = (
+        metrics.pipeline
+        | 'CreateEvalConfig' >> beam.Create(
+            [_serialize_eval_config(self._eval_config)])
+        | 'WriteEvalConfig' >> beam.io.WriteToTFRecord(
+            eval_config_file, shard_name_template=''))
+
+    return beam.pvalue.PDone(metrics.pipeline)  # pytype: disable=bad-return-type
 
 
 @beam.ptransform_fn
@@ -289,7 +452,7 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
   if eval_shared_model.example_weight_key:
     example_weight_metric_key = metric_keys.EXAMPLE_WEIGHT
 
-  eval_config = api_types.EvalConfig(
+  eval_config = EvalConfig(
       model_location=eval_shared_model.model_path,
       data_location=data_location,
       slice_spec=slice_spec,
@@ -298,8 +461,7 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
   _ = ((metrics, plots)
        | 'SerializeMetricsAndPlots' >> serialization.SerializeMetricsAndPlots(
            post_export_metrics=eval_shared_model.add_metrics_callbacks)
-       |
-       'WriteMetricsPlotsAndConfig' >> serialization.WriteMetricsPlotsAndConfig(
+       | 'WriteMetricsPlotsAndConfig' >> WriteMetricsPlotsAndConfig(
            output_path=output_path, eval_config=eval_config))
 
   return beam.pvalue.PDone(examples.pipeline)
@@ -402,7 +564,7 @@ def multiple_model_analysis(model_locations, data_location,
     results.append(
         run_model_analysis(
             default_eval_shared_model(m), data_location, **kwargs))
-  return api_types.EvalResults(results, constants.MODEL_CENTRIC_MODE)
+  return EvalResults(results, constants.MODEL_CENTRIC_MODE)
 
 
 def multiple_data_analysis(model_location, data_locations,
@@ -424,37 +586,4 @@ def multiple_data_analysis(model_location, data_locations,
     results.append(
         run_model_analysis(
             default_eval_shared_model(model_location), d, **kwargs))
-  return api_types.EvalResults(results, constants.DATA_CENTRIC_MODE)
-
-
-def make_eval_results(results,
-                      mode):
-  """Run model analysis for a single model on multiple data sets.
-
-  Args:
-    results: A list of TFMA evaluation results.
-    mode: The mode of the evaluation. Currently, tfma.DATA_CENTRIC_MODE and
-      tfma.MODEL_CENTRIC_MODE are supported.
-
-  Returns:
-    An EvalResults containing all evaluation results. This can be used to
-    construct a time series view.
-  """
-  return api_types.EvalResults(results, mode)
-
-
-def load_eval_results(output_paths,
-                      mode):
-  """Run model analysis for a single model on multiple data sets.
-
-  Args:
-    output_paths: A list of output paths of completed tfma runs.
-    mode: The mode of the evaluation. Currently, tfma.DATA_CENTRIC_MODE and
-      tfma.MODEL_CENTRIC_MODE are supported.
-
-  Returns:
-    An EvalResults containing the evaluation results serialized at output_paths.
-    This can be used to construct a time series view.
-  """
-  results = [load_eval_result(output_path) for output_path in output_paths]
-  return make_eval_results(results, mode)
+  return EvalResults(results, constants.DATA_CENTRIC_MODE)

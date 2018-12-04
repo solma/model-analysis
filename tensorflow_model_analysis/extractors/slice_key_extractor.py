@@ -25,7 +25,7 @@ import apache_beam as beam
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.slicer import slicer
 
 from tensorflow_model_analysis.types_compat import List, Optional
@@ -54,7 +54,7 @@ def SliceKeyExtractor(
   """
   if slice_spec is None:
     slice_spec = [slicer.SingleSliceSpec()]
-  return api_types.Extractor(
+  return extractor.Extractor(
       stage_name='ExtractSliceKeys',
       ptransform=ExtractSliceKeys(slice_spec, materialize))
 
@@ -73,7 +73,7 @@ class _ExtractSliceKeys(beam.DoFn):
     fpl = element.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
     if not fpl:
       raise RuntimeError('FPL missing, Please ensure Predict() was called.')
-    if not isinstance(fpl, api_types.FeaturesPredictionsLabels):
+    if not isinstance(fpl, types.FeaturesPredictionsLabels):
       raise TypeError(
           'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: '
           '%s of type %s' % (str(fpl), type(fpl)))
@@ -87,12 +87,12 @@ class _ExtractSliceKeys(beam.DoFn):
     element_copy[constants.SLICE_KEYS_KEY] = slices
     # Add a list of stringified slice keys to be materialized to output table.
     if self._materialize:
-      element_copy[constants
-                   .MATERIALIZED_SLICE_KEYS_KEY] = types.MaterializedColumn(
-                       name=constants.MATERIALIZED_SLICE_KEYS_KEY,
-                       value=(list(
-                           slicer.stringify_slice_key(x).encode('utf-8')
-                           for x in slices)))
+      element_copy[
+          constants.MATERIALIZED_SLICE_KEYS_KEY] = types.MaterializedColumn(
+              name=constants.MATERIALIZED_SLICE_KEYS_KEY,
+              value=(list(
+                  slicer.stringify_slice_key(x).encode('utf-8')
+                  for x in slices)))
     return [element_copy]
 
 

@@ -19,17 +19,14 @@ from __future__ import print_function
 
 import string
 
-import apache_beam as beam
 import numpy as np
 
 import tensorflow as tf
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.api.impl import serialization
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
-from tensorflow_model_analysis.slicer import slicer
 from google.protobuf import text_format
 
 
@@ -48,37 +45,6 @@ class SerializationTest(testutil.TensorflowModelAnalysisTest):
 
   def setUp(self):
     self.longMessage = True  # pylint: disable=invalid-name
-
-  def assertMetricsAlmostEqual(self, expected_metrics, got_metrics):
-    self.assertItemsEqual(
-        list(expected_metrics.keys()),
-        list(got_metrics.keys()),
-        msg='keys do not match. expected_metrics: %s, got_metrics: %s' %
-        (expected_metrics, got_metrics))
-    for key in expected_metrics.keys():
-      self.assertAlmostEqual(
-          expected_metrics[key],
-          got_metrics[key],
-          msg='value for key %s does not match' % key)
-
-  def assertSliceListEqual(self, expected_list, got_list, value_assert_fn):
-    self.assertEqual(
-        len(expected_list),
-        len(got_list),
-        msg='expected_list: %s, got_list: %s' % (expected_list, got_list))
-    for index, (expected, got) in enumerate(zip(expected_list, got_list)):
-      (expected_key, expected_value) = expected
-      (got_key, got_value) = got
-      self.assertEqual(
-          expected_key, got_key, msg='key mismatch at index %d' % index)
-      value_assert_fn(expected_value, got_value)
-
-  def assertSlicePlotsListEqual(self, expected_list, got_list):
-    self.assertSliceListEqual(expected_list, got_list, self.assertProtoEquals)
-
-  def assertSliceMetricsListEqual(self, expected_list, got_list):
-    self.assertSliceListEqual(expected_list, got_list,
-                              self.assertMetricsAlmostEqual)
 
   def testDeserializeSliceKey(self):
     slice_metrics = text_format.Parse(
@@ -308,163 +274,6 @@ class SerializationTest(testutil.TensorflowModelAnalysisTest):
     self.assertProtoEquals(
         expected_metrics_for_slice,
         metrics_for_slice_pb2.MetricsForSlice.FromString(got))
-
-  def testSerializeDeserializeEvalConfig(self):
-    eval_config = api_types.EvalConfig(
-        model_location='/path/to/model',
-        data_location='/path/to/data',
-        slice_spec=[
-            slicer.SingleSliceSpec(
-                features=[('age', 5), ('gender', 'f')], columns=['country']),
-            slicer.SingleSliceSpec(
-                features=[('age', 6), ('gender', 'm')], columns=['interest'])
-        ],
-        example_weight_metric_key='key')
-    serialized = serialization._serialize_eval_config(eval_config)
-    deserialized = serialization._deserialize_eval_config_raw(serialized)
-    got_eval_config = deserialized[serialization._EVAL_CONFIG_KEY]
-    self.assertEqual(eval_config, got_eval_config)
-
-  def testSerializeDeserializeToFile(self):
-    metrics_slice_key = _make_slice_key(b'fruit', b'pear', b'animal', b'duck')
-    metrics_for_slice = text_format.Parse(
-        """
-        slice_key {
-          single_slice_keys {
-            column: "fruit"
-            bytes_value: "pear"
-          }
-          single_slice_keys {
-            column: "animal"
-            bytes_value: "duck"
-          }
-        }
-        metrics {
-          key: "accuracy"
-          value {
-            double_value {
-              value: 0.8
-            }
-          }
-        }
-        metrics {
-          key: "example_weight"
-          value {
-            double_value {
-              value: 10.0
-            }
-          }
-        }
-        metrics {
-          key: "auc"
-          value {
-            bounded_value {
-              lower_bound {
-                value: 0.1
-              }
-              upper_bound {
-                value: 0.3
-              }
-              value {
-                value: 0.2
-              }
-            }
-          }
-        }
-        metrics {
-          key: "auprc"
-          value {
-            bounded_value {
-              lower_bound {
-                value: 0.05
-              }
-              upper_bound {
-                value: 0.17
-              }
-              value {
-                value: 0.1
-              }
-            }
-          }
-        }""", metrics_for_slice_pb2.MetricsForSlice())
-    plots_for_slice = text_format.Parse(
-        """
-        slice_key {
-          single_slice_keys {
-            column: "fruit"
-            bytes_value: "peach"
-          }
-          single_slice_keys {
-            column: "animal"
-            bytes_value: "cow"
-          }
-        }
-        plot_data {
-          calibration_histogram_buckets {
-            buckets {
-              lower_threshold_inclusive: -inf
-              upper_threshold_exclusive: 0.0
-              num_weighted_examples { value: 0.0 }
-              total_weighted_label { value: 0.0 }
-              total_weighted_refined_prediction { value: 0.0 }
-            }
-            buckets {
-              lower_threshold_inclusive: 0.0
-              upper_threshold_exclusive: 0.5
-              num_weighted_examples { value: 1.0 }
-              total_weighted_label { value: 1.0 }
-              total_weighted_refined_prediction { value: 0.3 }
-            }
-            buckets {
-              lower_threshold_inclusive: 0.5
-              upper_threshold_exclusive: 1.0
-              num_weighted_examples { value: 1.0 }
-              total_weighted_label { value: 0.0 }
-              total_weighted_refined_prediction { value: 0.7 }
-            }
-            buckets {
-              lower_threshold_inclusive: 1.0
-              upper_threshold_exclusive: inf
-              num_weighted_examples { value: 0.0 }
-              total_weighted_label { value: 0.0 }
-              total_weighted_refined_prediction { value: 0.0 }
-            }
-          }
-        }""", metrics_for_slice_pb2.PlotsForSlice())
-    plots_slice_key = _make_slice_key(b'fruit', b'peach', b'animal', b'cow')
-    eval_config = api_types.EvalConfig(
-        model_location='/path/to/model',
-        data_location='/path/to/data',
-        slice_spec=[
-            slicer.SingleSliceSpec(
-                features=[('age', 5), ('gender', 'f')], columns=['country']),
-            slicer.SingleSliceSpec(
-                features=[('age', 6), ('gender', 'm')], columns=['interest'])
-        ],
-        example_weight_metric_key='key')
-
-    output_path = self._getTempDir()
-    with beam.Pipeline() as pipeline:
-      metrics = (
-          pipeline
-          | 'CreateMetrics' >> beam.Create(
-              [metrics_for_slice.SerializeToString()]))
-      plots = (
-          pipeline
-          | 'CreatePlots' >> beam.Create([plots_for_slice.SerializeToString()]))
-
-      _ = ((metrics, plots)
-           | 'WriteMetricsPlotsAndConfig' >>
-           serialization.WriteMetricsPlotsAndConfig(
-               output_path=output_path, eval_config=eval_config))
-
-    metrics, plots = serialization.load_plots_and_metrics(output_path)
-    self.assertSliceMetricsListEqual(
-        [(metrics_slice_key, metrics_for_slice.metrics)], metrics)
-    self.assertSlicePlotsListEqual(
-        [(plots_slice_key, plots_for_slice.plot_data)], plots)
-    got_eval_config = serialization.load_eval_config(output_path)
-    self.assertEqual(eval_config, got_eval_config)
 
 
 if __name__ == '__main__':

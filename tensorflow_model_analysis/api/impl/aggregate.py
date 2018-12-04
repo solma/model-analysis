@@ -26,7 +26,6 @@ import numpy as np
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import api_types
 from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.slicer import slicer
@@ -42,8 +41,7 @@ SAMPLE_ID = '__sample_id'
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, api_types.FeaturesPredictionsLabels]
-)
+    beam.typehints.Tuple[_BeamSliceKeyType, types.FeaturesPredictionsLabels])
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.List[beam.typehints
                                                                 .Any]])
@@ -137,7 +135,7 @@ class _AggState(object):
 
   def __init__(self):
     self.metric_variables = None  # type: Optional[types.MetricVariablesType]
-    self.fpls = []  # type: List[api_types.FeaturesPredictionsLabels]
+    self.fpls = []  # type: List[types.FeaturesPredictionsLabels]
 
   def copy_from(  # pylint: disable=invalid-name
       self, other):
@@ -161,7 +159,7 @@ class _AggState(object):
                                                   metric_variables)
 
 
-@beam.typehints.with_input_types(api_types.FeaturesPredictionsLabels)
+@beam.typehints.with_input_types(types.FeaturesPredictionsLabels)
 @beam.typehints.with_output_types(beam.typehints.List[beam.typehints.Any])
 class _AggregateCombineFn(beam.CombineFn):
   """Aggregate combine function.

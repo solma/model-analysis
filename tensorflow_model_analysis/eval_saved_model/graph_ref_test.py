@@ -56,16 +56,12 @@ class GraphRefTest(tf.test.TestCase):
         make_tensor_info('prefix/sub/more'))
 
     self.assertDictEqual(
-        {
-            '__labels': signature_def.inputs['labels']
-        },
+        {'__labels': signature_def.inputs['labels']},
         graph_ref.extract_signature_inputs_or_outputs_with_prefix(
             'labels', signature_def.inputs, '__labels'))
 
     self.assertDictEqual(
-        {
-            'predictions': signature_def.outputs['predictions']
-        },
+        {'predictions': signature_def.outputs['predictions']},
         graph_ref.extract_signature_inputs_or_outputs_with_prefix(
             'predictions', signature_def.outputs))
 
