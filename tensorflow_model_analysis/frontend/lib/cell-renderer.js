@@ -223,7 +223,7 @@ function renderFloat(value) {
   return {
     // If value is non-zero, trim it to specified number of digits. If it is
     // zero, simply show zero.
-    'f': value ? trimFloat(value) : '0',
+    'f': value === 0 ? '0' : trimFloat(value),
     'v': value,
   };
 }
@@ -319,7 +319,7 @@ function renderRatioValue(value) {
   // Otherwise, render it as float.
   const ratio = value['ratio'];
   return isBoundedValue(ratio) ? renderBoundedValue(ratio) :
-                                 renderFloat(ratio['value']);
+                                 renderFloat(parseFloat(ratio['value']));
 }
 
 /**

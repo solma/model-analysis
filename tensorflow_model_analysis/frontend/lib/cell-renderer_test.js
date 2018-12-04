@@ -88,6 +88,19 @@ testSuite({
     assertEquals('1.00000', cell.f);
   },
 
+  testRenderValueWithRatioValueWitNaNValue: function() {
+    const value = 'NaN';
+    const ratioValue = {
+      'numerator': 256,
+      'denominator': 1024,
+      'ratio': {'value': value},
+    };
+
+    const cell = CellRenderer.renderValue(ratioValue);
+    assertNaN(cell.v);
+    assertEquals('NaN', cell.f);
+  },
+
   testRenderValueWithMultiClassConfusionMatrix: function() {
     const matrix = {
       'entries': [
