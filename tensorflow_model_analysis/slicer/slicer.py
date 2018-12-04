@@ -25,8 +25,10 @@ from __future__ import print_function
 import itertools
 
 
+import apache_beam as beam
 import six
 import tensorflow as tf
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.slicer import slice_accessor
 from tensorflow_model_analysis.types_compat import Generator, Iterable, List, Text, Tuple, Union
@@ -44,6 +46,11 @@ SingletonSliceKeyType = Tuple[Text, FeatureValueType]  # pylint: disable=invalid
 SliceKeyType = Tuple[SingletonSliceKeyType, Ellipsis]  # pylint: disable=invalid-name
 
 OVERALL_SLICE_NAME = 'Overall'
+
+# For use in Beam type annotations, because Beam's support for Python types
+# in Beam type annotations is not complete.
+_BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
+    beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
 
 
 class SingleSliceSpec(object):
@@ -281,3 +288,50 @@ def stringify_slice_key(slice_key):
   return separator.join([
       '{}'.format(key) for key in keys
   ]) + ':' + separator.join(['{}'.format(value) for value in values])
+
+
+@beam.typehints.with_input_types(types.Extracts)
+@beam.typehints.with_output_types(
+    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.Any])
+class _FanoutSlicesDoFn(beam.DoFn):
+  """A DoFn that performs per-slice key fanout prior to computing aggregates."""
+
+  def __init__(self):
+    self._num_slices_generated_per_instance = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'num_slices_generated_per_instance')
+    self._post_slice_num_instances = beam.metrics.Metrics.counter(
+        constants.METRICS_NAMESPACE, 'post_slice_num_instances')
+
+  def process(self, element
+             ):
+    fpl = element.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
+    if not fpl:
+      raise RuntimeError('FPL missing, Please ensure Predict() was called.')
+    if not isinstance(fpl, types.FeaturesPredictionsLabels):
+      raise TypeError(
+          'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: '
+          '%s of type %s' % (str(fpl), type(fpl)))
+
+    slices = element.get(constants.SLICE_KEYS_KEY)
+
+    slice_count = 0
+    for slice_key in slices:
+      slice_count += 1
+      yield (slice_key, fpl)
+
+    self._num_slices_generated_per_instance.update(slice_count)
+    self._post_slice_num_instances.inc(slice_count)
+
+
+
+
+@beam.ptransform_fn
+@beam.typehints.with_input_types(types.Extracts)
+@beam.typehints.with_output_types(
+    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.Any])  # pylint: disable=invalid-name
+def FanoutSlices(pcoll):  # pylint: disable=invalid-name
+  """Fan out examples based on the slice keys."""
+  result = pcoll | 'DoSlicing' >> beam.ParDo(_FanoutSlicesDoFn())
+
+
+  return result

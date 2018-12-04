@@ -25,7 +25,6 @@ import apache_beam as beam
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api.impl import aggregate
-from tensorflow_model_analysis.api.impl import slice as slice_api
 from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import feature_extractor
 from tensorflow_model_analysis.extractors import predict_extractor
@@ -94,7 +93,7 @@ def Evaluate(  # pylint: disable=invalid-name
       # Input: one example at a time, with slice keys in extracts.
       # Output: one fpl example per slice key (notice that the example turns
       #         into n, replicated once per applicable slice key)
-      | 'FanoutSlices' >> slice_api.FanoutSlices()
+      | 'FanoutSlices' >> slicer.FanoutSlices()
 
       # Each slice key lands on one shard where metrics are computed for all
       # examples in that shard -- the "map" and "reduce" parts of the

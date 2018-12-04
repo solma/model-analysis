@@ -24,7 +24,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
-from tensorflow_model_analysis.api.impl import slice as slice_api
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.extractors import meta_feature_extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
@@ -142,7 +141,7 @@ class MetaFeatureExtractorTest(testutil.TensorflowModelAnalysisTest):
               slicer.SingleSliceSpec(),
               slicer.SingleSliceSpec(columns=['num_interests'])
           ])
-          | 'FanoutSlices' >> slice_api.FanoutSlices())
+          | 'FanoutSlices' >> slicer.FanoutSlices())
 
       def check_result(got):
         try:
