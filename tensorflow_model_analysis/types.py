@@ -81,6 +81,7 @@ class EvalSharedModel(
             ('model_path', Text),
             ('add_metrics_callbacks',
              List[Callable]),  # List[AnyMetricsCallbackType]
+            ('include_default_metrics', bool),
             ('example_weight_key', Text),
             ('shared_handle', shared.Shared),
             ('construct_fn', Callable),
@@ -96,6 +97,8 @@ class EvalSharedModel(
       should not conflict with existing metrics. See below for more details
       about what each callback should do. The callbacks are only used during
       evaluation.
+    include_default_metrics: True to include the default metrics that are part
+      of the saved model graph during evaluation.
     example_weight_key: The key of the example weight column. If None, weight
       will be 1 for each example.
     shared_handle: Optional handle to a shared.Shared object for sharing the
@@ -131,6 +134,7 @@ class EvalSharedModel(
       cls,
       model_path = None,
       add_metrics_callbacks = None,
+      include_default_metrics = True,
       example_weight_key = None,
       shared_handle = None,
       construct_fn = None,
@@ -140,5 +144,5 @@ class EvalSharedModel(
     if not shared_handle:
       shared_handle = shared.Shared()
     return super(EvalSharedModel, cls).__new__(
-        cls, model_path, add_metrics_callbacks, example_weight_key,
-        shared_handle, construct_fn, model_load_seconds)
+        cls, model_path, add_metrics_callbacks, include_default_metrics,
+        example_weight_key, shared_handle, construct_fn, model_load_seconds)

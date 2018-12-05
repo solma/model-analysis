@@ -2,6 +2,9 @@
 
 ## Major Features and Improvements
 
+*  Added support for excluding the default metrics from the saved model graph
+   during evaluation.
+
 ## Bug fixes and other changes
 
 * We now store feature and label Tensor information in SignatureDef inputs

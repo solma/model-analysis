@@ -130,6 +130,7 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
       self,
       eval_saved_model_path,
       add_metrics_callbacks = None,
+      include_default_metrics = True,
       example_weight_key = None):
 
     model_load_seconds = beam.metrics.Metrics.distribution(
@@ -140,7 +141,8 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
         add_metrics_callbacks=add_metrics_callbacks,
         example_weight_key=example_weight_key,
         construct_fn=dofn.make_construct_fn(
-            eval_saved_model_path, add_metrics_callbacks, model_load_seconds))
+            eval_saved_model_path, add_metrics_callbacks,
+            include_default_metrics, model_load_seconds))
 
   def predict_injective_single_example(
       self, eval_saved_model,

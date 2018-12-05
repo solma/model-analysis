@@ -22,19 +22,20 @@ from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.eval_saved_model import load
 
-from tensorflow_model_analysis.types_compat import List, Optional, Text
+from tensorflow_model_analysis.types_compat import List, Text
 
 
 def make_construct_fn(  # pylint: disable=invalid-name
     eval_saved_model_path,
     add_metrics_callbacks,
+    include_default_metrics,
     model_load_seconds):
   """Returns construct function for Shared for constructing EvalSavedModel."""
 
   def construct():  # pylint: disable=invalid-name
     """Function for constructing a EvalSavedModel."""
     start_time = datetime.datetime.now()
-    result = load.EvalSavedModel(eval_saved_model_path)
+    result = load.EvalSavedModel(eval_saved_model_path, include_default_metrics)
     if add_metrics_callbacks:
       result.register_add_metric_callbacks(add_metrics_callbacks)
     result.graph_finalize()
@@ -59,6 +60,7 @@ class EvalSavedModelDoFn(beam.DoFn):
         self._eval_shared_model.shared_handle.acquire(
             make_construct_fn(self._eval_shared_model.model_path,
                               self._eval_shared_model.add_metrics_callbacks,
+                              self._eval_shared_model.include_default_metrics,
                               self._model_load_seconds)))
 
   def process(self, elem):

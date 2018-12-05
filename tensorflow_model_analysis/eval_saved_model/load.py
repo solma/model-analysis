@@ -28,7 +28,7 @@ from tensorflow_model_analysis.eval_saved_model import constants
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.eval_saved_model import graph_ref
 from tensorflow_model_analysis.eval_saved_model import util
-from tensorflow_model_analysis.types_compat import Any, Dict, Generator, List, Text, Tuple, Union
+from tensorflow_model_analysis.types_compat import Any, Dict, Generator, List, Optional, Text, Tuple, Union
 
 from tensorflow.core.protobuf import meta_graph_pb2
 
@@ -52,8 +52,10 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
   the prediction ops.
   """
 
-  def __init__(self, path):
+  def __init__(self, path,
+               include_default_metrics = True):
     self._path = path
+    self._include_default_metrics = include_default_metrics
     super(EvalSavedModel, self).__init__()
 
   def _check_version(self, version_node):
@@ -142,12 +144,6 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
       self._predictions_map = graph_ref.load_predictions(
           signature_def, self._graph)
 
-      metrics_map = graph_ref.load_metrics(signature_def, self._graph)
-      metric_ops = {}
-      for metric_name, ops in metrics_map.items():
-        metric_ops[metric_name] = (ops[encoding.VALUE_OP_SUFFIX],
-                                   ops[encoding.UPDATE_OP_SUFFIX])
-
       # Create feed_list for metrics_reset_update_get_fn
       #
       # We need to save this because we need to update the
@@ -169,7 +165,14 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
       self._metric_variable_nodes = []
       self._metric_variable_placeholders = []
       self._metric_variable_assign_ops = []
-      self.register_additional_metric_ops(metric_ops)
+
+      if self._include_default_metrics:
+        metrics_map = graph_ref.load_metrics(signature_def, self._graph)
+        metric_ops = {}
+        for metric_name, ops in metrics_map.items():
+          metric_ops[metric_name] = (ops[encoding.VALUE_OP_SUFFIX],
+                                     ops[encoding.UPDATE_OP_SUFFIX])
+        self.register_additional_metric_ops(metric_ops)
 
       # Make callable for predict_list. The callable for
       # metrics_reset_update_get is updated in register_additional_metric_ops.

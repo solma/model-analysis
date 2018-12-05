@@ -569,6 +569,60 @@ class IntegrationTest(testutil.TensorflowModelAnalysisTest):
     self.assertHasKeyWithValueAlmostEqual(metric_values,
                                           'example_count/english_head', 2.0)
 
+  def testEvaluateWithOnlyAdditionalMetricsBasic(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = multi_head.simple_multi_head(None,
+                                                      temp_eval_export_dir)
+
+    eval_saved_model = load.EvalSavedModel(
+        eval_export_dir, include_default_metrics=False)
+    _, prediction_dict, label_dict = (
+        eval_saved_model.get_features_predictions_labels_dicts())
+    with eval_saved_model.graph_as_default():
+      metric_ops = {}
+      value_op, update_op = tf.metrics.mean_absolute_error(
+          label_dict['english_head'][0][0],
+          prediction_dict['english_head/probabilities'][0][1])
+      metric_ops['mean_absolute_error/english_head'] = (value_op, update_op)
+
+      value_op, update_op = tf.contrib.metrics.count(
+          prediction_dict['english_head/logits'])
+      metric_ops['example_count/english_head'] = (value_op, update_op)
+
+      eval_saved_model.register_additional_metric_ops(metric_ops)
+
+    example1 = self._makeMultiHeadExample('english')
+    features_predictions_labels = self.predict_injective_single_example(
+        eval_saved_model, example1.SerializeToString())
+    eval_saved_model.perform_metrics_update(features_predictions_labels)
+
+    example2 = self._makeMultiHeadExample('chinese')
+    features_predictions_labels = self.predict_injective_single_example(
+        eval_saved_model, example2.SerializeToString())
+    eval_saved_model.perform_metrics_update(features_predictions_labels)
+
+    metric_values = eval_saved_model.get_metric_values()
+
+    # Check that the original metrics are not there.
+    self.assertNotIn('accuracy/english_head', metric_values)
+    self.assertNotIn('accuracy/chinese_head', metric_values)
+    self.assertNotIn('accuracy/other_head', metric_values)
+    self.assertNotIn('auc/english_head', metric_values)
+    self.assertNotIn('auc/chinese_head', metric_values)
+    self.assertNotIn('auc/other_head', metric_values)
+    self.assertNotIn('label/mean/english_head', metric_values)
+    self.assertNotIn('label/mean/chinese_head', metric_values)
+    self.assertNotIn('label/mean/other_head', metric_values)
+
+    # Check the added metrics.
+    # We don't control the trained model's weights fully, but it should
+    # predict probabilities > 0.7.
+    self.assertIn('mean_absolute_error/english_head', metric_values)
+    self.assertLess(metric_values['mean_absolute_error/english_head'], 0.3)
+
+    self.assertHasKeyWithValueAlmostEqual(metric_values,
+                                          'example_count/english_head', 2.0)
+
   def testGetAndSetMetricVariables(self):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = multi_head.simple_multi_head(None,

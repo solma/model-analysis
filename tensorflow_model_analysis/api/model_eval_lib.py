@@ -193,6 +193,7 @@ def load_eval_result(output_path):
 def default_eval_shared_model(
     eval_saved_model_path,
     add_metrics_callbacks = None,
+    include_default_metrics = True,
     example_weight_key = None):
   """Returns default EvalSharedModel.
 
@@ -202,6 +203,8 @@ def default_eval_shared_model(
       metrics to the graph (see EvalSharedModel for more information on how to
       configure additional metrics). Metrics for example counts and example
       weight will be added automatically.
+    include_default_metrics: True to include the default metrics that are part
+      of the saved model graph during evaluation.
     example_weight_key: The key of the example weight column. If None, weight
       will be 1 for each example.
   """
@@ -222,9 +225,11 @@ def default_eval_shared_model(
   return types.EvalSharedModel(
       model_path=eval_saved_model_path,
       add_metrics_callbacks=add_metrics_callbacks,
+      include_default_metrics=include_default_metrics,
       example_weight_key=example_weight_key,
       construct_fn=dofn.make_construct_fn(
-          eval_saved_model_path, add_metrics_callbacks, model_load_seconds))
+          eval_saved_model_path, add_metrics_callbacks, include_default_metrics,
+          model_load_seconds))
 
 
 def default_extractors(  # pylint: disable=invalid-name
