@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Trainer for the chicago_taxi demo."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import os
 
-import model
-import taxi
-
 import tensorflow as tf
-
 import tensorflow_model_analysis as tfma
+from trainer import model
+from trainer import taxi
 
 SERVING_MODEL_DIR = 'serving_model_dir'
 EVAL_MODEL_DIR = 'eval_model_dir'
