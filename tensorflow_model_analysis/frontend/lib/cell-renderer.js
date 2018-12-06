@@ -643,6 +643,9 @@ goog.exportSymbol('tfma.CellRenderer.registerRenderer', registerRenderer);
 goog.exportSymbol(
     'tfma.CellRenderer.registerOverrideRenderer', registerOverrideRenderer);
 
+goog.exportSymbol('tfma.CellRenderer.isBoundedValue', isBoundedValue);
+goog.exportSymbol('tfma.CellRenderer.isRatioValue', isRatioValue);
+
 exports = {
   BoundedValue,
   renderValue,

@@ -68,6 +68,18 @@ tfma.CellRenderer.renderValueWithFormatOverride = function(
     value, opt_tableProvider, opt_override) {};
 
 /**
+ * @param {!Object} value
+ * @return {boolean}
+ */
+tfma.CellRenderer.isBoundedValue = function(value) {};
+
+/**
+ * @param {!Object} value
+ * @return {boolean}
+ */
+tfma.CellRenderer.isRatioValue = function(value) {};
+
+/**
  * @constructor
  */
 tfma.Data = function() {};
