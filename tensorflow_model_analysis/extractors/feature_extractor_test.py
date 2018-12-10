@@ -99,6 +99,39 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
         result['s'], types.MaterializedColumn(
             name='s', value=[100., 200., 300.]))
 
+  def testMaterializeFeaturesWithExcludes(self):
+    example1 = self._makeExample(
+        age=3.0, language='english', label=1.0, slice_key='first_slice')
+
+    features = {
+        'f': {
+            encoding.NODE_SUFFIX: np.array([1])
+        },
+        's': {
+            encoding.NODE_SUFFIX:
+                tf.SparseTensorValue(
+                    indices=[[0, 5], [1, 2], [3, 6]],
+                    values=[100., 200., 300.],
+                    dense_shape=[4, 10])
+        }
+    }
+    predictions = {'p': {encoding.NODE_SUFFIX: np.array([2])}}
+    labels = {'l': {encoding.NODE_SUFFIX: np.array([3])}}
+
+    extracts = {
+        constants.INPUT_KEY:
+            example1.SerializeToString(),
+        constants.FEATURES_PREDICTIONS_LABELS_KEY:
+            types.FeaturesPredictionsLabels(
+                input_ref=0,
+                features=features,
+                predictions=predictions,
+                labels=labels)
+    }
+    result = feature_extractor._MaterializeFeatures(extracts,
+                                                    excludes=['s'])
+    self.assertFalse('s' in result)
+
 
 if __name__ == '__main__':
   tf.test.main()
