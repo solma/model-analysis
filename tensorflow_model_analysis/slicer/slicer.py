@@ -30,6 +30,7 @@ import six
 import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
+from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slice_accessor
 from tensorflow_model_analysis.types_compat import Generator, Iterable, List, Text, Tuple, Union
 
@@ -221,6 +222,65 @@ class SingleSliceSpec(object):
     # slices.
     for column_part in itertools.product(*column_matches):
       yield tuple(sorted(self._value_matches + list(column_part)))
+
+
+def serialize_slice_key(
+    slice_key):
+  """Converts SliceKeyType to SliceKey proto.
+
+  Args:
+    slice_key: The slice key in the format of SliceKeyType.
+
+  Returns:
+    The slice key in the format of SliceKey proto.
+
+  Raises:
+    TypeError: If the evaluate type is unreconized.
+  """
+  result = metrics_for_slice_pb2.SliceKey()
+
+  for (col, val) in slice_key:
+    single_slice_key = result.single_slice_keys.add()
+    single_slice_key.column = col
+    if isinstance(val, (six.binary_type, six.text_type)):
+      single_slice_key.bytes_value = tf.compat.as_bytes(val)
+    elif isinstance(val, six.integer_types):
+      single_slice_key.int64_value = val
+    elif isinstance(val, float):
+      single_slice_key.float_value = val
+    else:
+      raise TypeError(
+          'unrecognized type of type %s, value %s' % (type(val), val))
+
+  return result
+
+
+def deserialize_slice_key(
+    slice_key):
+  """Converts SliceKey proto to SliceKeyType.
+
+  Args:
+    slice_key: The slice key in the format of proto SliceKey.
+
+  Returns:
+    The slice key in the format of SliceKeyType.
+
+  Raises:
+    TypeError: If the evaluate type is unreconized.
+  """
+  result = []
+  for elem in slice_key.single_slice_keys:
+    if elem.HasField('bytes_value'):
+      value = elem.bytes_value
+    elif elem.HasField('int64_value'):
+      value = elem.int64_value
+    elif elem.HasField('float_value'):
+      value = elem.float_value
+    else:
+      raise TypeError(
+          'unrecognized type of type %s, value %s' % (type(elem), elem))
+    result.append((tf.compat.as_bytes(elem.column), value))
+  return tuple(result)
 
 
 def get_slices_for_features_dict(

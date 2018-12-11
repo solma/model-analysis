@@ -19,7 +19,6 @@ from tensorflow_model_analysis import view
 from tensorflow_model_analysis import slicer
 from tensorflow_model_analysis.api import tfma_unit as test
 
-
 from tensorflow_model_analysis.api.model_eval_lib import default_eval_shared_model
 from tensorflow_model_analysis.api.model_eval_lib import ExtractEvaluateAndWriteResults
 from tensorflow_model_analysis.api.model_eval_lib import load_eval_result
@@ -29,9 +28,12 @@ from tensorflow_model_analysis.api.model_eval_lib import multiple_data_analysis
 from tensorflow_model_analysis.api.model_eval_lib import multiple_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import run_model_analysis
 
+from tensorflow_model_analysis.constants import ANALYSIS_KEY
 from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
 from tensorflow_model_analysis.constants import INPUT_KEY
+from tensorflow_model_analysis.constants import METRICS_KEY
 from tensorflow_model_analysis.constants import MODEL_CENTRIC_MODE
+from tensorflow_model_analysis.constants import PLOTS_KEY
 
 from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import export

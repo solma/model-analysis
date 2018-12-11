@@ -22,10 +22,10 @@ import os
 import apache_beam as beam
 from apache_beam.testing import util
 import tensorflow as tf
-from tensorflow_model_analysis.api.impl import aggregate
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
+from tensorflow_model_analysis.evaluators import aggregate
 
 
 def create_test_input(predict_list, slice_list):

@@ -21,5 +21,14 @@ from __future__ import print_function
 import apache_beam as beam
 from tensorflow_model_analysis.types_compat import NamedTuple, Text
 
+# An Extractor is a PTransform that takes Extracts as input and returns Extracts
+# as output. A typical example is a PredictExtractor that receives an 'input'
+# placeholder for input and adds additional 'features', 'labels', and
+# 'predictions' extracts.
 Extractor = NamedTuple(  # pylint: disable=invalid-name
-    'Extractor', [('stage_name', Text), ('ptransform', beam.PTransform)])
+    'Extractor',
+    [
+        ('stage_name', Text),
+        # PTransform Extracts -> Extracts
+        ('ptransform', beam.PTransform)
+    ])

@@ -13,7 +13,6 @@
 # limitations under the License.
 """Test for using the model_eval_lib API."""
 
-from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
@@ -25,17 +24,19 @@ import tempfile
 
 import apache_beam as beam
 import tensorflow as tf
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis.api import model_eval_lib
-from tensorflow_model_analysis.api.impl import serialization
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.eval_saved_model.example_trainers import csv_linear_classifier
 from tensorflow_model_analysis.eval_saved_model.example_trainers import custom_estimator
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_estimator
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
+from tensorflow_model_analysis.evaluators import metrics_and_plots_evaluator
 from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
+
 from google.protobuf import text_format
 
 
@@ -452,15 +453,15 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
       plots = (
           pipeline
           | 'CreatePlots' >> beam.Create([plots_for_slice.SerializeToString()]))
+      evaluation = {constants.METRICS_KEY: metrics, constants.PLOTS_KEY: plots}
+      _ = (
+          evaluation
+          | 'WriteResults' >> model_eval_lib.WriteResults(
+              output_path=output_path, eval_config=eval_config))
 
-      _ = ((metrics, plots)
-           | 'WriteMetricsPlotsAndConfig' >>
-           model_eval_lib.WriteMetricsPlotsAndConfig(
-               output_path=output_path, eval_config=eval_config))
-
-    metrics = serialization.load_and_deserialize_metrics(
+    metrics = metrics_and_plots_evaluator.load_and_deserialize_metrics(
         path=os.path.join(output_path, model_eval_lib._METRICS_OUTPUT_FILE))
-    plots = serialization.load_and_deserialize_plots(
+    plots = metrics_and_plots_evaluator.load_and_deserialize_plots(
         path=os.path.join(output_path, model_eval_lib._PLOTS_OUTPUT_FILE))
     self.assertSliceMetricsListEqual(
         [(metrics_slice_key, metrics_for_slice.metrics)], metrics)

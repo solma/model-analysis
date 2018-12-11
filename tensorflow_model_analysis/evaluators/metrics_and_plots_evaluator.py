@@ -11,50 +11,57 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Serialization library. For internal use only."""
+"""Public API for performing metrics and plots evaluations."""
 
 from __future__ import absolute_import
 from __future__ import division
 
 from __future__ import print_function
 
+
+
 import apache_beam as beam
 import numpy as np
 import six
 import tensorflow as tf
-
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
+from tensorflow_model_analysis.evaluators import aggregate
+from tensorflow_model_analysis.evaluators import evaluator
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
-from tensorflow_model_analysis.types_compat import Any, Dict, List, Text, Tuple
+from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Text, Tuple
 
 
-def deserialize_slice_key(
-    slice_key):
-  """Converts proto SliceKey to slicer.SliceKeyType.
+def MetricsAndPlotsEvaluator(  # pylint: disable=invalid-name
+    eval_shared_model,
+    desired_batch_size = None,
+    metrics_key = constants.METRICS_KEY,
+    plots_key = constants.PLOTS_KEY,
+    run_after = constants.LAST_EXTRACTOR):
+  """Creates an Evaluator for evaluating metrics and plots.
 
   Args:
-    slice_key: The slice key in the format of proto SliceKey.
+    eval_shared_model: Shared model parameters for EvalSavedModel.
+    desired_batch_size: Optional batch size for batching in Aggregate.
+    metrics_key: Name to use for metrics key in Evaluation output.
+    plots_key: Name to use for plots key in Evaluation output.
+    run_after: Extractor to run after (None means before any extractors).
 
   Returns:
-    The slice key in the format of slicer.SliceKeyType.
-
-  Raises:
-    TypeError: If the evaluate type is unreconized.
+    Evaluator for evaluating metrics and plots. The output will be stored under
+    'metrics' and 'plots' keys.
   """
-  result = []
-  for elem in slice_key.single_slice_keys:
-    if elem.HasField('bytes_value'):
-      value = elem.bytes_value
-    elif elem.HasField('int64_value'):
-      value = elem.int64_value
-    elif elem.HasField('float_value'):
-      value = elem.float_value
-    else:
-      raise TypeError(
-          'unrecognized type of type %s, value %s' % (type(elem), elem))
-    result.append((tf.compat.as_bytes(elem.column), value))
-  return tuple(result)
+  # pylint: disable=no-value-for-parameter
+  return evaluator.Evaluator(
+      stage_name='EvaluateMetricsAndPlots',
+      run_after=run_after,
+      ptransform=EvaluateMetricsAndPlots(
+          eval_shared_model=eval_shared_model,
+          desired_batch_size=desired_batch_size,
+          metrics_key=metrics_key,
+          plots_key=plots_key))
+  # pylint: enable=no-value-for-parameter
 
 
 def load_and_deserialize_metrics(
@@ -63,7 +70,7 @@ def load_and_deserialize_metrics(
   for record in tf.python_io.tf_record_iterator(path):
     metrics_for_slice = metrics_for_slice_pb2.MetricsForSlice.FromString(record)
     result.append((
-        deserialize_slice_key(metrics_for_slice.slice_key),  # pytype: disable=wrong-arg-types
+        slicer.deserialize_slice_key(metrics_for_slice.slice_key),  # pytype: disable=wrong-arg-types
         metrics_for_slice.metrics))
   return result
 
@@ -75,29 +82,8 @@ def load_and_deserialize_plots(
   for record in tf.python_io.tf_record_iterator(path):
     plots_for_slice = metrics_for_slice_pb2.PlotsForSlice.FromString(record)
     result.append((
-        deserialize_slice_key(plots_for_slice.slice_key),  # pytype: disable=wrong-arg-types
+        slicer.deserialize_slice_key(plots_for_slice.slice_key),  # pytype: disable=wrong-arg-types
         plots_for_slice.plot_data))
-  return result
-
-
-def _convert_slice_key(
-    slice_key):
-  """Converts slice_key into metrics_for_slice_pb2.SliceKey proto."""
-  result = metrics_for_slice_pb2.SliceKey()
-
-  for (col, val) in slice_key:
-    single_slice_key = result.single_slice_keys.add()
-    single_slice_key.column = col
-    if isinstance(val, (six.binary_type, six.text_type)):
-      single_slice_key.bytes_value = tf.compat.as_bytes(val)
-    elif isinstance(val, six.integer_types):
-      single_slice_key.int64_value = val
-    elif isinstance(val, float):
-      single_slice_key.float_value = val
-    else:
-      raise TypeError(
-          'unrecognized type of type %s, value %s' % (type(val), val))
-
   return result
 
 
@@ -177,7 +163,7 @@ def _serialize_metrics(
   slice_key, slice_metrics = metrics
 
   # Convert the slice key.
-  result.slice_key.CopyFrom(_convert_slice_key(slice_key))
+  result.slice_key.CopyFrom(slicer.serialize_slice_key(slice_key))
 
   # Convert the slice metrics.
   _convert_slice_metrics(slice_metrics, post_export_metrics, result)
@@ -221,7 +207,7 @@ def _serialize_plots(
   slice_key, slice_plots = plots
 
   # Convert the slice key.
-  result.slice_key.CopyFrom(_convert_slice_key(slice_key))
+  result.slice_key.CopyFrom(slicer.serialize_slice_key(slice_key))
 
   # Convert the slice plots.
   _convert_slice_plots(slice_plots, post_export_metrics, result.plot_data)  # pytype: disable=wrong-arg-types
@@ -229,8 +215,9 @@ def _serialize_plots(
   return result.SerializeToString()
 
 
-# No typehint for output type, since it's a multi-output DoFn result that
+# No typehint for input type, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
+@beam.typehints.with_output_types(beam.typehints.Tuple[bytes, bytes])
 class SerializeMetricsAndPlots(beam.PTransform):  # pylint: disable=invalid-name
   """Converts metrics and plots into serialized protos."""
 
@@ -255,3 +242,90 @@ class SerializeMetricsAndPlots(beam.PTransform):  # pylint: disable=invalid-name
     plots = plots | 'SerializePlots' >> beam.Map(
         _serialize_plots, post_export_metrics=self._post_export_metrics)
     return (metrics, plots)
+
+
+@beam.ptransform_fn
+@beam.typehints.with_input_types(beam.typehints.Any)
+# No typehint for output type, since it's a multi-output DoFn result that
+# Beam doesn't support typehints for yet (BEAM-3280).
+def ComputeMetricsAndPlots(  # pylint: disable=invalid-name
+    extracts,
+    eval_shared_model,
+    desired_batch_size = None,
+):
+  """Computes metrics and plots using the EvalSavedModel.
+
+  Args:
+    extracts: PCollection of Extracts. The extracts MUST contain a
+      FeaturesPredictionsLabels extract with key 'fpl' and a list of
+      SliceKeyType extracts with key 'slice_keys'. Typically these will be added
+      by calling the default_extractors function.
+    eval_shared_model: Shared model parameters for EvalSavedModel including any
+      additional metrics (see EvalSharedModel for more information on how to
+      configure additional metrics).
+    desired_batch_size: Optional batch size for batching in Aggregate.
+
+  Returns:
+    DoOutputsTuple. The tuple entries are
+    PCollection of (slice key, metrics) and
+    PCollection of (slice key, plot metrics).
+  """
+  # pylint: disable=no-value-for-parameter
+  return (
+      extracts
+
+      # Input: one example at a time, with slice keys in extracts.
+      # Output: one fpl example per slice key (notice that the example turns
+      #         into n, replicated once per applicable slice key)
+      | 'FanoutSlices' >> slicer.FanoutSlices()
+
+      # Each slice key lands on one shard where metrics are computed for all
+      # examples in that shard -- the "map" and "reduce" parts of the
+      # computation happen within this shard.
+      # Output: Multi-outputs, a dict of slice key to computed metrics, and
+      # plots if applicable.
+      | 'ComputePerSliceMetrics' >> aggregate.ComputePerSliceMetrics(
+          eval_shared_model=eval_shared_model,
+          desired_batch_size=desired_batch_size))
+  # pylint: enable=no-value-for-parameter
+
+
+@beam.ptransform_fn
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(evaluator.Evaluation)
+def EvaluateMetricsAndPlots(  # pylint: disable=invalid-name
+    extracts,
+    eval_shared_model,
+    desired_batch_size = None,
+    metrics_key = constants.METRICS_KEY,
+    plots_key = constants.PLOTS_KEY):
+  """Evaluates metrics and plots using the EvalSavedModel.
+
+  Args:
+    extracts: PCollection of Extracts. The extracts MUST contain a
+      FeaturesPredictionsLabels extract with key 'fpl' and a list of
+      SliceKeyType extracts with key 'slice_keys'. Typically these will be added
+      by calling the default_extractors function.
+    eval_shared_model: Shared model parameters for EvalSavedModel including any
+      additional metrics (see EvalSharedModel for more information on how to
+      configure additional metrics).
+    desired_batch_size: Optional batch size for batching in Aggregate.
+    metrics_key: Name to use for metrics key in Evaluation output.
+    plots_key: Name to use for plots key in Evaluation output.
+
+  Returns:
+    Evaluation containing serialized protos keyed by 'metrics' and 'plots'.
+  """
+
+  # pylint: disable=no-value-for-parameter
+  metrics, plots = (
+      extracts
+      | 'ComputeMetricsAndPlots' >> ComputeMetricsAndPlots(
+          eval_shared_model, desired_batch_size))
+  metrics, plots = (
+      (metrics, plots)
+      | 'SerializeMetricsAndPlots' >> SerializeMetricsAndPlots(
+          post_export_metrics=eval_shared_model.add_metrics_callbacks))
+  # pylint: enable=no-value-for-parameter
+
+  return {metrics_key: metrics, plots_key: plots}

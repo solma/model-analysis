@@ -30,9 +30,9 @@ import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis import version as tfma_version
-from tensorflow_model_analysis.api.impl import evaluate
-from tensorflow_model_analysis.api.impl import serialization
 from tensorflow_model_analysis.eval_saved_model import dofn
+from tensorflow_model_analysis.evaluators import evaluator
+from tensorflow_model_analysis.evaluators import metrics_and_plots_evaluator
 from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import predict_extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
@@ -175,9 +175,9 @@ def load_eval_results(output_paths, mode):
 
 def load_eval_result(output_path):
   """Creates an EvalResult object for use with the visualization functions."""
-  metrics_proto_list = serialization.load_and_deserialize_metrics(
+  metrics_proto_list = metrics_and_plots_evaluator.load_and_deserialize_metrics(
       path=os.path.join(output_path, _METRICS_OUTPUT_FILE))
-  plots_proto_list = serialization.load_and_deserialize_plots(
+  plots_proto_list = metrics_and_plots_evaluator.load_and_deserialize_plots(
       path=os.path.join(output_path, _PLOTS_OUTPUT_FILE))
 
   slicing_metrics = [(key, _convert_metric_map_to_dict(metrics_data))
@@ -237,7 +237,7 @@ def default_extractors(  # pylint: disable=invalid-name
     slice_spec = None,
     desired_batch_size = None,
     materialize = True):
-  """Returns the default required extractors for use in Evaluate.
+  """Returns the default extractors for use in ExtractAndEvaluate.
 
   Args:
     eval_shared_model: Shared model parameters for EvalSavedModel.
@@ -251,6 +251,21 @@ def default_extractors(  # pylint: disable=invalid-name
           eval_shared_model, desired_batch_size, materialize=materialize),
       slice_key_extractor.SliceKeyExtractor(
           slice_spec, materialize=materialize)
+  ]
+
+
+def default_evaluators(  # pylint: disable=invalid-name
+    eval_shared_model,
+    desired_batch_size = None):
+  """Returns the default evaluators for use in ExtractAndEvaluate.
+
+  Args:
+    eval_shared_model: Shared model parameters for EvalSavedModel.
+    desired_batch_size: Optional batch size for batching in Aggregate.
+  """
+  return [
+      metrics_and_plots_evaluator.MetricsAndPlotsEvaluator(
+          eval_shared_model, desired_batch_size)
   ]
 
 
@@ -324,8 +339,41 @@ def _convert_metric_map_to_dict(metric_map):
   return {k: json_format.MessageToDict(metric_map[k]) for k in metric_map}
 
 
+@beam.ptransform_fn
+@beam.typehints.with_input_types(bytes)
+@beam.typehints.with_output_types(beam.typehints.Any)
+def InputsToExtracts(  # pylint: disable=invalid-name
+    inputs):
+  """Converts serialized inputs (e.g. examples) to Extracts."""
+  return inputs | beam.Map(lambda x: {constants.INPUT_KEY: x})
+
+
+@beam.ptransform_fn
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(evaluator.Evaluation)
+def ExtractAndEvaluate(  # pylint: disable=invalid-name
+    extracts, extractors,
+    evaluators):
+  """Performs Extractions and Evaluations in provided order."""
+  evaluation = {}
+  # Run evaluators that run before extraction (i.e. that only require
+  # the incoming input extract added by ReadInputs)
+  for v in evaluators:
+    if not v.run_after:
+      evaluation.update(extracts | v.stage_name >> v.ptransform)
+  for x in extractors:
+    extracts = (extracts | x.stage_name >> x.ptransform)
+    for v in evaluators:
+      if v.run_after == x.stage_name:
+        evaluation.update(extracts | v.stage_name >> v.ptransform)
+  for v in evaluators:
+    if v.run_after == constants.LAST_EXTRACTOR:
+      evaluation.update(extracts | v.stage_name >> v.ptransform)
+  return evaluation
+
+
 @beam.typehints.with_output_types(beam.pvalue.PDone)
-class WriteMetricsPlotsAndConfig(beam.PTransform):
+class WriteResults(beam.PTransform):
   """Writes metrics, plots and config to the given path.
 
   Typically users should call tfma.ExtractEvaluateAndWriteResults() instead,
@@ -336,15 +384,14 @@ class WriteMetricsPlotsAndConfig(beam.PTransform):
     self._output_path = output_path
     self._eval_config = eval_config
 
-  def expand(
-      self,
-      metrics_and_plots
-  ):
+  def expand(self, evaluation
+            ):
     metrics_output_file = os.path.join(self._output_path, _METRICS_OUTPUT_FILE)
     plots_output_file = os.path.join(self._output_path, _PLOTS_OUTPUT_FILE)
     eval_config_file = os.path.join(self._output_path, _EVAL_CONFIG_FILE)
 
-    metrics, plots = metrics_and_plots
+    metrics = evaluation[constants.METRICS_KEY]
+    plots = evaluation[constants.PLOTS_KEY]
     if metrics.pipeline != plots.pipeline:
       raise ValueError('metrics and plots should come from the same pipeline '
                        'but pipelines were metrics: %s and plots: %s' %
@@ -378,8 +425,9 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
     slice_spec = None,
     desired_batch_size = None,
     extractors = None,
+    evaluators = None,
 ):
-  """Public API version of evaluate.Evaluate that handles example weights.
+  """PTransform for performing extraction, evaluation, and writing results.
 
   Users who want to construct their own Beam pipelines instead of using the
   lightweight run_model_analysis functions should use this PTransform.
@@ -420,16 +468,16 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
       the data into. If None, defaults to the overall slice.
     desired_batch_size: Optional batch size for batching in Predict and
       Aggregate.
-    extractors: Optional list of Extractors to apply to Extracts. If provided,
-      the extracts MUST contain a FeaturesPredictionsLabels extract with key
-      'fpl' and a list of SliceKeyType extracts with key 'slice_keys'. Typically
+    extractors: Optional list of Extractors to apply to Extracts. Typically
       these will be added by calling the default_extractors function. If no
       extractors are provided, default_extractors (non-materialized) will be
       used.
+    evaluators: Optional list of Evaluators for evaluating Extracts. Typically
+      these will be added by calling the default_evaluators function. If no
+      evaluators are provided, default_evaluators will be used.
 
   Raises:
-    ValueError: If PredictExtractor or SliceKeyExtractor is not present in
-      extractors.
+    ValueError: If matching Extractor not found for an Evaluator.
 
   Returns:
     PDone.
@@ -441,13 +489,13 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
         desired_batch_size=desired_batch_size,
         materialize=False)
 
-  metrics, plots = (
-      examples
-      | 'InputsToExtracts' >> evaluate.InputsToExtracts()
-      | 'Extract' >> evaluate.Extract(extractors=extractors)
-      | 'Evaluate' >> evaluate.Evaluate(
-          eval_shared_model=eval_shared_model,
-          desired_batch_size=desired_batch_size))
+  if not evaluators:
+    evaluators = default_evaluators(
+        eval_shared_model=eval_shared_model,
+        desired_batch_size=desired_batch_size)
+
+  for v in evaluators:
+    evaluator.verify_evaluator(v, extractors)
 
   data_location = '<user provided PCollection>'
   if display_only_data_location is not None:
@@ -463,11 +511,15 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
       slice_spec=slice_spec,
       example_weight_metric_key=example_weight_metric_key)
 
-  _ = ((metrics, plots)
-       | 'SerializeMetricsAndPlots' >> serialization.SerializeMetricsAndPlots(
-           post_export_metrics=eval_shared_model.add_metrics_callbacks)
-       | 'WriteMetricsPlotsAndConfig' >> WriteMetricsPlotsAndConfig(
-           output_path=output_path, eval_config=eval_config))
+  # pylint: disable=no-value-for-parameter
+  _ = (
+      examples
+      | 'InputsToExtracts' >> InputsToExtracts()
+      | 'ExtractAndEvaluate' >> ExtractAndEvaluate(
+          extractors=extractors, evaluators=evaluators)
+      | 'WriteResults' >> WriteResults(
+          output_path=output_path, eval_config=eval_config))
+  # pylint: enable=no-value-for-parameter
 
   return beam.pvalue.PDone(examples.pipeline)
 
@@ -479,6 +531,7 @@ def run_model_analysis(
     slice_spec = None,
     output_path = None,
     extractors = None,
+    evaluators = None,
     pipeline_options = None,
 ):
   """Runs TensorFlow model analysis.
@@ -508,7 +561,13 @@ def run_model_analysis(
         on slice "country:us".
     output_path: The directory to output metrics and results to. If None, we use
       a temporary directory.
-    extractors: An optional list of PTransforms to run before slicing the data.
+    extractors: Optional list of Extractors to apply to Extracts. Typically
+      these will be added by calling the default_extractors function. If no
+      extractors are provided, default_extractors (non-materialized) will be
+      used.
+    evaluators: Optional list of Evaluators for evaluating Extracts. Typically
+      these will be added by calling the default_evaluators function. If no
+      evaluators are provided, default_evaluators will be used.
     pipeline_options: Optional arguments to run the Pipeline, for instance
       whether to run directly.
 
@@ -543,7 +602,8 @@ def run_model_analysis(
             output_path=output_path,
             display_only_data_location=data_location,
             slice_spec=slice_spec,
-            extractors=extractors))
+            extractors=extractors,
+            evaluators=evaluators))
     # pylint: enable=no-value-for-parameter
 
   eval_result = load_eval_result(output_path=output_path)

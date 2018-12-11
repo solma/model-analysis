@@ -66,11 +66,22 @@ from apache_beam.testing import util as beam_util
 
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api import model_eval_lib
-from tensorflow_model_analysis.api.impl import evaluate
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import testutil
+from tensorflow_model_analysis.evaluators import metrics_and_plots_evaluator
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, List, Dict, Text, Union
+
+
+@beam.ptransform_fn
+@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_output_types(beam.typehints.Any)
+def Extract(  # pylint: disable=invalid-name
+    extracts, extractors):
+  for x in extractors:
+    extracts = (extracts | x.stage_name >> x.ptransform)
+  return extracts
 
 
 class BoundedValue(object):
@@ -253,13 +264,15 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
         eval_shared_model=eval_shared_model)
 
     with beam.Pipeline() as pipeline:
+      # pylint: disable=no-value-for-parameter
       metrics, _ = (
           pipeline
           | 'CreateExamples' >> beam.Create(serialized_examples)
-          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
-          | 'Extract' >> evaluate.Extract(extractors=extractors)
-          |
-          'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
+          | 'InputsToExtracts' >> model_eval_lib.InputsToExtracts()
+          | 'Extract' >> Extract(extractors=extractors)
+          | 'ComputeMetricsAndPlots' >> metrics_and_plots_evaluator
+          .ComputeMetricsAndPlots(eval_shared_model=eval_shared_model))
+      # pylint: enable=no-value-for-parameter
 
       beam_util.assert_that(metrics, check_metrics)
 
@@ -339,10 +352,13 @@ class TestCase(testutil.TensorflowModelAnalysisTest):
     extractors = model_eval_lib.default_extractors(
         eval_shared_model=eval_shared_model, slice_spec=slice_spec)
 
+    # pylint: disable=no-value-for-parameter
     metrics, _ = (
         examples_pcollection
-        | 'InputsToExtracts' >> evaluate.InputsToExtracts()
-        | 'Extract' >> evaluate.Extract(extractors=extractors)
-        | 'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
+        | 'InputsToExtracts' >> model_eval_lib.InputsToExtracts()
+        | 'Extract' >> Extract(extractors=extractors)
+        | 'ComputeMetricsAndPlots' >> metrics_and_plots_evaluator
+        .ComputeMetricsAndPlots(eval_shared_model=eval_shared_model))
+    # pylint: enable=no-value-for-parameter
 
     beam_util.assert_that(metrics, check_metrics)

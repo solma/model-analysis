@@ -42,3 +42,15 @@ SLICE_KEYS_KEY = 'slice_keys'
 # Human-readable slice strings that are written to the diagnostic table for
 # analysis.
 MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'
+
+# Tag for the last extractor in list of extractors.
+LAST_EXTRACTOR = '<last-extractor>'
+
+# Keys for Evaluation dictionary
+
+# Metrics output key.
+METRICS_KEY = 'metrics'
+# Plots output key.
+PLOTS_KEY = 'plots'
+# Analysis output key.
+ANALYSIS_KEY = 'analysis'

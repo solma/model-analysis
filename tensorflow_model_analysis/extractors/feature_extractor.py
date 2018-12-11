@@ -48,7 +48,7 @@ def _AugmentExtracts(fpl_dict,
   """Augments the Extracts with FeaturesPredictionsLabels.
 
   Args:
-    fpl_dict: The dictionary returned by evaluate._Predict().
+    fpl_dict: The dictionary returned by PredictExtractor.
     excludes: List of strings containing features, predictions, or labels to
       exclude from materialization.
     extracts: The Extracts to be augmented. This is mutated in-place.
@@ -82,8 +82,8 @@ def _MaterializeFeatures(
     excludes = None):
   """Converts FeaturesPredictionsLabels into MaterializedColumn in the extract.
 
-  It must be the case that evaluate._Predict() was called on the Extracts before
-  calling this function.
+  It must be the case that the PredictExtractor was called before calling this
+  function.
 
   Args:
     extracts: The Extracts to be augmented.
@@ -127,8 +127,8 @@ def ExtractFeatures(
     excludes = None):
   """Builds MaterializedColumn extracts from FPL created in evaluate.Predict().
 
-  It must be the case that evaluate._Predict() was called on the Extracts before
-  calling this function.
+  It must be the case that the PredictExtractor was called before calling this
+  function.
 
   Args:
     extracts: PCollection containing the Extracts that will have

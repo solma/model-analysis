@@ -42,7 +42,7 @@ SAMPLE_ID = '__sample_id'
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, types.FeaturesPredictionsLabels])
+    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.Any])
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.List[beam.typehints
                                                                 .Any]])
@@ -136,7 +136,7 @@ class _AggState(object):
 
   def __init__(self):
     self.metric_variables = None  # type: Optional[types.MetricVariablesType]
-    self.fpls = []  # type: List[types.FeaturesPredictionsLabels]
+    self.fpls = []  # type: List[beam.typehints.Any]
 
   def copy_from(  # pylint: disable=invalid-name
       self, other):
@@ -160,7 +160,7 @@ class _AggState(object):
                                                   metric_variables)
 
 
-@beam.typehints.with_input_types(types.FeaturesPredictionsLabels)
+@beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.List[beam.typehints.Any])
 class _AggregateCombineFn(beam.CombineFn):
   """Aggregate combine function.
@@ -229,8 +229,7 @@ class _AggregateCombineFn(beam.CombineFn):
                   add_metrics_callbacks=self._eval_shared_model
                   .add_metrics_callbacks,
                   include_default_metrics=True,
-                  model_load_seconds=model_load_seconds)
-          ))
+                  model_load_seconds=model_load_seconds)))
     else:
       self._eval_metrics_graph = (
           self._eval_shared_model.shared_handle.acquire(
@@ -361,8 +360,7 @@ class _ExtractOutputDoFn(beam.DoFn):
                   add_metrics_callbacks=self._eval_shared_model
                   .add_metrics_callbacks,
                   include_default_metrics=True,
-                  model_load_seconds=model_load_seconds)
-          ))
+                  model_load_seconds=model_load_seconds)))
     else:
       self._eval_saved_model = (
           self._eval_shared_model.shared_handle.acquire(

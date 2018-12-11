@@ -35,7 +35,7 @@ from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_c
 from tensorflow_model_analysis.slicer import slicer
 
 
-class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
+class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
 
   def _getTempDir(self):
     return tempfile.mkdtemp()
@@ -71,7 +71,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
         self.assertAlmostEqual(
             got_column.value, expected_column.value, places, msg='key %s' % key)
 
-  def testBuildDiagnosticsTable(self):
+  def testBuildAnalysisTable(self):
     model_location = self._exportEvalSavedModel(
         linear_classifier.simple_linear_classifier)
     eval_shared_model = types.EvalSharedModel(model_path=model_location)
@@ -84,7 +84,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
           pipeline
           | 'CreateInput' >> beam.Create([example1.SerializeToString()])
           | 'BuildTable' >>
-          contrib.BuildDiagnosticTable(eval_shared_model=eval_shared_model))
+          contrib.BuildAnalysisTable(eval_shared_model=eval_shared_model))
 
       def check_result(got):
         self.assertEqual(1, len(got), 'got: %s' % got)
@@ -125,9 +125,9 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
             constants.MATERIALIZED_SLICE_KEYS_KEY
         ])
 
-      util.assert_that(result, check_result)
+      util.assert_that(result[constants.ANALYSIS_KEY], check_result)
 
-  def testBuildDiagnosticsTableWithSlices(self):
+  def testBuildAnalysisTableWithSlices(self):
     model_location = self._exportEvalSavedModel(
         linear_classifier.simple_linear_classifier)
     eval_shared_model = types.EvalSharedModel(model_path=model_location)
@@ -145,8 +145,8 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
       result = (
           pipeline
           | 'CreateInput' >> beam.Create([example1.SerializeToString()])
-          | 'BuildTable' >> contrib.BuildDiagnosticTable(
-              eval_shared_model, slice_spec))
+          | 'BuildTable' >> contrib.BuildAnalysisTable(eval_shared_model,
+                                                       slice_spec))
 
       def check_result(got):
         self.assertEqual(1, len(got), 'got: %s' % got)
@@ -171,7 +171,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
             materialized_dict,
             ['logits', 'probabilities', 'classes', 'logistic', 'class_ids'])
 
-      util.assert_that(result, check_result)
+      util.assert_that(result[constants.ANALYSIS_KEY], check_result)
 
 
 if __name__ == '__main__':

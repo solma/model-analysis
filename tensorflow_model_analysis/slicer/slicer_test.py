@@ -28,7 +28,10 @@ from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.extractors import slice_key_extractor
+from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
+
+from google.protobuf import text_format
 
 
 def make_features_dict(features_dict):
@@ -89,6 +92,27 @@ class SlicerTest(testutil.TensorflowModelAnalysisTest):
     six.assertCountEqual(
         self, expected,
         slicer.get_slices_for_features_dict(features_dict, [spec]), msg)
+
+  def testDeserializeSliceKey(self):
+    slice_metrics = text_format.Parse(
+        """
+          single_slice_keys {
+            column: 'age'
+            int64_value: 5
+          }
+          single_slice_keys {
+            column: 'language'
+            bytes_value: 'english'
+          }
+          single_slice_keys {
+            column: 'price'
+            float_value: 1.0
+          }
+        """, metrics_for_slice_pb2.SliceKey())
+
+    got_slice_key = slicer.deserialize_slice_key(slice_metrics)
+    self.assertItemsEqual([(b'age', 5), (b'language', b'english'),
+                           (b'price', 1.0)], got_slice_key)
 
   def testSliceEquality(self):
     overall = slicer.SingleSliceSpec()

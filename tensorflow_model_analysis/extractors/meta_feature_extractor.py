@@ -105,8 +105,8 @@ def ExtractMetaFeature(  # pylint: disable=invalid-name
 ):
   """Extracts meta-features derived from existing features.
 
-  It must be the case that evaluate._Predict() was called on the Extracts before
-  calling this function.
+  It must be the case that the PredictExtractor was called before calling this
+  function.
 
   Args:
     extracts: PCollection containing the Extracts that will have

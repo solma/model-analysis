@@ -28,7 +28,7 @@ from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis.api import model_eval_lib
-from tensorflow_model_analysis.api.impl import evaluate
+from tensorflow_model_analysis.api import tfma_unit
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.eval_saved_model.example_trainers import dnn_classifier
 from tensorflow_model_analysis.eval_saved_model.example_trainers import dnn_regressor
@@ -39,6 +39,7 @@ from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_pr
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_regressor
 from tensorflow_model_analysis.eval_saved_model.example_trainers import multi_head
+from tensorflow_model_analysis.evaluators import metrics_and_plots_evaluator
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
@@ -67,10 +68,10 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
       metrics, plots = (
           pipeline
           | 'Create' >> beam.Create(serialized_examples)
-          | 'InputsToExtracts' >> evaluate.InputsToExtracts()
-          | 'Extract' >> evaluate.Extract(extractors=extractors)
-          |
-          'Evaluate' >> evaluate.Evaluate(eval_shared_model=eval_shared_model))
+          | 'InputsToExtracts' >> model_eval_lib.InputsToExtracts()
+          | 'Extract' >> tfma_unit.Extract(extractors=extractors)  # pylint: disable=no-value-for-parameter
+          | 'ComputeMetricsAndPlots' >> metrics_and_plots_evaluator
+          .ComputeMetricsAndPlots(eval_shared_model=eval_shared_model))
       if custom_metrics_check is not None:
         util.assert_that(metrics, custom_metrics_check, label='metrics')
       if custom_plots_check is not None:
