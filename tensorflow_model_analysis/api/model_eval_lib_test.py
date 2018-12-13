@@ -457,7 +457,8 @@ class EvaluateTest(testutil.TensorflowModelAnalysisTest):
       _ = (
           evaluation
           | 'WriteResults' >> model_eval_lib.WriteResults(
-              output_path=output_path, eval_config=eval_config))
+              writers=model_eval_lib.default_writers(output_path=output_path)))
+      _ = pipeline | model_eval_lib.WriteEvalConfig(eval_config, output_path)
 
     metrics = metrics_and_plots_evaluator.load_and_deserialize_metrics(
         path=os.path.join(output_path, model_eval_lib._METRICS_OUTPUT_FILE))

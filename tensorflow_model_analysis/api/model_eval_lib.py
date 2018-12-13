@@ -39,6 +39,7 @@ from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.slicer import slicer
+from tensorflow_model_analysis.writers import writer
 from tensorflow_model_analysis.types_compat import Any, Dict, List, NamedTuple, Optional, Text, Tuple
 
 from google.protobuf import json_format
@@ -269,6 +270,28 @@ def default_evaluators(  # pylint: disable=invalid-name
   ]
 
 
+def default_writers(output_path):  # pylint: disable=invalid-name
+  """Returns the default writers for use in WriteResults.
+
+  Args:
+    output_path: Path to store results files under.
+  """
+  writers = []
+  output = {
+      constants.METRICS_KEY: os.path.join(output_path, _METRICS_OUTPUT_FILE),
+      constants.PLOTS_KEY: os.path.join(output_path, _PLOTS_OUTPUT_FILE)
+  }
+  for (key, output_file) in output.items():
+    writers.append(
+        writer.Writer(
+            stage_name='WriteTFRecord(%s)' % output_file,
+            ptransform=writer.Write(
+                key=key,
+                ptransform=beam.io.WriteToTFRecord(
+                    file_path_prefix=output_file, shard_name_template=''))))
+  return writers
+
+
 # The input type is a MessageMap where the keys are strings and the values are
 # some protocol buffer field. Note that MessageMap is not a protobuf message,
 # none of the exising utility methods work on it. We must iterate over its
@@ -372,47 +395,50 @@ def ExtractAndEvaluate(  # pylint: disable=invalid-name
   return evaluation
 
 
+@beam.ptransform_fn
+@beam.typehints.with_input_types(evaluator.Evaluation)
 @beam.typehints.with_output_types(beam.pvalue.PDone)
-class WriteResults(beam.PTransform):
-  """Writes metrics, plots and config to the given path.
+def WriteResults(  # pylint: disable=invalid-name
+    evaluation, writers):
+  """Writes Evaluation results using given writers.
 
-  Typically users should call tfma.ExtractEvaluateAndWriteResults() instead,
-  which calls this.
+  Args:
+    evaluation: Evaluation output.
+    writers: Writes to use for writing out Evaluation output.
+
+  Raises:
+    ValueError: If Evaluation is empty.
+
+  Returns:
+    beam.pvalue.PDone.
   """
+  if not evaluation:
+    raise ValueError('Evaluation cannot be empty')
+  for w in writers:
+    _ = evaluation | w.stage_name >> w.ptransform
+  return beam.pvalue.PDone(list(evaluation.values())[0].pipeline)
 
-  def __init__(self, output_path, eval_config):
-    self._output_path = output_path
-    self._eval_config = eval_config
 
-  def expand(self, evaluation
-            ):
-    metrics_output_file = os.path.join(self._output_path, _METRICS_OUTPUT_FILE)
-    plots_output_file = os.path.join(self._output_path, _PLOTS_OUTPUT_FILE)
-    eval_config_file = os.path.join(self._output_path, _EVAL_CONFIG_FILE)
+@beam.ptransform_fn
+@beam.typehints.with_input_types(beam.Pipeline)
+@beam.typehints.with_output_types(beam.pvalue.PDone)
+def WriteEvalConfig(  # pylint: disable=invalid-name
+    pipeline, eval_config, output_path):
+  """Writes EvalConfig to file.
 
-    metrics = evaluation[constants.METRICS_KEY]
-    plots = evaluation[constants.PLOTS_KEY]
-    if metrics.pipeline != plots.pipeline:
-      raise ValueError('metrics and plots should come from the same pipeline '
-                       'but pipelines were metrics: %s and plots: %s' %
-                       (metrics.pipeline, plots.pipeline))
-    _ = (
-        metrics
-        | 'WriteMetricsToFile' >> beam.io.WriteToTFRecord(
-            metrics_output_file, shard_name_template=''))
-    _ = (
-        plots
-        | 'WritePlotsToFile' >> beam.io.WriteToTFRecord(
-            plots_output_file, shard_name_template=''))
+  Args:
+    pipeline: Beam pipeline.
+    eval_config: EvalConfig.
+    output_path: Path to store output under.
 
-    _ = (
-        metrics.pipeline
-        | 'CreateEvalConfig' >> beam.Create(
-            [_serialize_eval_config(self._eval_config)])
-        | 'WriteEvalConfig' >> beam.io.WriteToTFRecord(
-            eval_config_file, shard_name_template=''))
-
-    return beam.pvalue.PDone(metrics.pipeline)  # pytype: disable=bad-return-type
+  Returns:
+    beam.pvalue.PDone.
+  """
+  return (
+      pipeline
+      | 'CreateEvalConfig' >> beam.Create([_serialize_eval_config(eval_config)])
+      | 'WriteEvalConfig' >> beam.io.WriteToTFRecord(
+          os.path.join(output_path, _EVAL_CONFIG_FILE), shard_name_template=''))
 
 
 @beam.ptransform_fn
@@ -426,7 +452,8 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
     desired_batch_size = None,
     extractors = None,
     evaluators = None,
-):
+    writers = None,
+    write_config = True):
   """PTransform for performing extraction, evaluation, and writing results.
 
   Users who want to construct their own Beam pipelines instead of using the
@@ -475,6 +502,10 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
     evaluators: Optional list of Evaluators for evaluating Extracts. Typically
       these will be added by calling the default_evaluators function. If no
       evaluators are provided, default_evaluators will be used.
+    writers: Optional list of Writers for writing Evaluation output. Typically
+      these will be added by calling the default_writers function. If no writers
+      are provided, default_writers will be used.
+    write_config: True to write the config along with the results.
 
   Raises:
     ValueError: If matching Extractor not found for an Evaluator.
@@ -497,6 +528,9 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
   for v in evaluators:
     evaluator.verify_evaluator(v, extractors)
 
+  if not writers:
+    writers = default_writers(output_path=output_path)
+
   data_location = '<user provided PCollection>'
   if display_only_data_location is not None:
     data_location = display_only_data_location
@@ -517,8 +551,10 @@ def ExtractEvaluateAndWriteResults(  # pylint: disable=invalid-name
       | 'InputsToExtracts' >> InputsToExtracts()
       | 'ExtractAndEvaluate' >> ExtractAndEvaluate(
           extractors=extractors, evaluators=evaluators)
-      | 'WriteResults' >> WriteResults(
-          output_path=output_path, eval_config=eval_config))
+      | 'WriteResults' >> WriteResults(writers=writers))
+
+  if write_config:
+    _ = examples.pipeline | WriteEvalConfig(eval_config, output_path)
   # pylint: enable=no-value-for-parameter
 
   return beam.pvalue.PDone(examples.pipeline)
@@ -532,6 +568,8 @@ def run_model_analysis(
     output_path = None,
     extractors = None,
     evaluators = None,
+    writers = None,
+    write_config = True,
     pipeline_options = None,
 ):
   """Runs TensorFlow model analysis.
@@ -568,6 +606,10 @@ def run_model_analysis(
     evaluators: Optional list of Evaluators for evaluating Extracts. Typically
       these will be added by calling the default_evaluators function. If no
       evaluators are provided, default_evaluators will be used.
+    writers: Optional list of Writers for writing Evaluation output. Typically
+      these will be added by calling the default_writers function. If no writers
+      are provided, default_writers will be used.
+    write_config: True to write the config along with the results.
     pipeline_options: Optional arguments to run the Pipeline, for instance
       whether to run directly.
 
@@ -603,7 +645,9 @@ def run_model_analysis(
             display_only_data_location=data_location,
             slice_spec=slice_spec,
             extractors=extractors,
-            evaluators=evaluators))
+            evaluators=evaluators,
+            writers=writers,
+            write_config=write_config))
     # pylint: enable=no-value-for-parameter
 
   eval_result = load_eval_result(output_path=output_path)
