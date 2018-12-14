@@ -133,24 +133,6 @@ def _get_target_tensor(maybe_dict,
   return None
 
 
-def _check_labels(labels_dict,
-                  labels_key = None):
-  """Raise TypeError if the labels cannot be understood."""
-  if _get_target_tensor(labels_dict, [labels_key]) is None:
-    raise KeyError(
-        'Cannot find %s in labels_dict %s.' % (labels_key, labels_dict))
-
-
-def _check_predictions(predictions_dict,
-                       key_precedence = None):
-  """Raise KeyError if the predictions cannot be understood."""
-  if not key_precedence:
-    key_precedence = default_key_precedence
-  if _get_target_tensor(predictions_dict, key_precedence) is None:
-    raise KeyError('Cannot find any of %s in predictions_dict %s.' %
-                   (key_precedence, predictions_dict))
-
-
 def _check_weight_present(features_dict,
                           example_weight_key = None):
   """Raise ValueError if the example weight is not present."""
@@ -195,7 +177,8 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
   def __init__(self,
                target_prediction_keys = None,
                labels_key = None,
-               metric_tag = None):
+               metric_tag = None,
+               tensor_index = None):
     """Common init of _PostExportMetrics.
 
     Args:
@@ -205,18 +188,53 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
       metric_tag: If provided, a custom metric tag. Only necessary to
         disambiguate instances of the same metric on different predictions or
         for readability concerns in tool output.
+      tensor_index: Optional index to specify positive class.
     """
     self._target_prediction_keys = (
         target_prediction_keys or default_key_precedence)
+    self._tensor_index = tensor_index
     self._labels_key = labels_key
     self._metric_tag = metric_tag
 
-  def _check_labels_and_predictions(
+  def _select_class(self, predictions_tensor, labels_tensor):
+    predictions_shape = tf.shape(predictions_tensor)
+    labels_shape = tf.shape(labels_tensor)
+
+    def return_tensors_at_index():
+      return predictions_tensor[:, self._tensor_index], tf.cast(
+          labels_tensor[:, self._tensor_index], tf.float32)
+
+    def try_one_hot_labels():
+      tf.logging.info('Labels and Predictions size did not match. Trying to '
+                      'transform labels into one_hot labels for analysis.')
+      labels = tf.one_hot(
+          indices=labels_tensor, depth=predictions_shape[1],
+          axis=0)[self._tensor_index]
+      return predictions_tensor[:, self._tensor_index], labels
+
+    return tf.cond(
+        tf.reduce_all(tf.equal(predictions_shape, labels_shape)),
+        return_tensors_at_index, try_one_hot_labels)
+
+  def _get_labels_and_predictions(
       self, predictions_dict,
       labels_dict):
     """Raise TypeError if the predictions and labels cannot be understood."""
-    _check_predictions(predictions_dict, self._target_prediction_keys)
-    _check_labels(labels_dict, self._labels_key)
+    predictions_tensor = _get_target_tensor(predictions_dict,
+                                            self._target_prediction_keys)
+    if predictions_tensor is None:
+      raise KeyError('Cannot find any of %s in predictions_dict %s.' %
+                     (self._target_prediction_keys, predictions_dict))
+    labels_tensor = _get_target_tensor(labels_dict, [self._labels_key])
+    if labels_tensor is None:
+      raise KeyError(
+          'Cannot find %s in labels_dict %s.' % (self._labels_key, labels_dict))
+    if self._tensor_index is None:
+      return predictions_tensor, labels_tensor
+
+    # If predictions are multi-class, we can use the tensor_index to choose a
+    # class to evaluate.
+    return self._select_class(predictions_tensor, labels_tensor)
 
   def _metric_key(self, base_key):
     """Constructs a metric key, including user-specified prefix if necessary.
@@ -437,13 +455,15 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
   _metric_tag = Ellipsis  # type: Text
+  _tensor_index = Ellipsis  # type: int
 
   def __init__(self,
                example_weight_key = None,
                num_buckets = _DEFAULT_NUM_BUCKETS,
                target_prediction_keys = None,
                labels_key = None,
-               metric_tag = None):
+               metric_tag = None,
+               tensor_index = None):
     """Create a plot metric for calibration plot and prediction histogram.
 
     Predictions should be one of:
@@ -463,17 +483,22 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
       labels_key: If provided, a custom label key.
       metric_tag: If provided, a custom metric tag. Only necessary to
         disambiguate instances of the same metric on different predictions.
+      tensor_index: Optional index to specify class predictions to calculate
+        metrics on in the case of multi-class models.
     """
     self._example_weight_key = example_weight_key
     self._num_buckets = num_buckets
     super(_CalibrationPlotAndPredictionHistogram, self).__init__(
-        target_prediction_keys, labels_key, metric_tag)
+        target_prediction_keys,
+        labels_key,
+        metric_tag,
+        tensor_index=tensor_index)
 
   def check_compatibility(self, features_dict,
                           predictions_dict,
                           labels_dict):
     _check_weight_present(features_dict, self._example_weight_key)
-    self._check_labels_and_predictions(predictions_dict, labels_dict)
+    self._get_labels_and_predictions(predictions_dict, labels_dict)
 
   def get_metric_ops(self, features_dict,
                      predictions_dict,
@@ -486,9 +511,8 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
     squeezed_weights = None
     if self._example_weight_key:
       squeezed_weights = tf.squeeze(features_dict[self._example_weight_key])
-    prediction_tensor = _get_target_tensor(predictions_dict,
-                                           self._target_prediction_keys)
-    label_tensor = _get_target_tensor(labels_dict, [self._labels_key])
+    prediction_tensor, label_tensor = self._get_labels_and_predictions(
+        predictions_dict, labels_dict)
     return {
         self._metric_key(metric_keys.CALIBRATION_PLOT_MATRICES):
             metrics.calibration_plot(
@@ -546,7 +570,8 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
                example_weight_key = None,
                target_prediction_keys = None,
                labels_key = None,
-               metric_tag = None):
+               metric_tag = None,
+               tensor_index = None):
     """Create a metric that computes the confusion matrix at given thresholds.
 
     Predictions should be one of:
@@ -562,22 +587,27 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
       thresholds: List of thresholds to compute the confusion matrix at.
       example_weight_key: The key of the example weight column in the features
         dict. If None, all predictions are given a weight of 1.0.
-      target_prediction_keys: Optional acceptable keys in predictions_dict in
-        descending order of precedence.
-      labels_key: Optionally, the key from labels_dict to use.
+      target_prediction_keys: If provided, the prediction keys to look for in
+        order.
+      labels_key: If provided, a custom label key.
       metric_tag: If provided, a custom metric tag. Only necessary to
         disambiguate instances of the same metric on different predictions.
+      tensor_index: Optional index to specify class predictions to calculate
+        metrics on in the case of multi-class models.
     """
     self._example_weight_key = example_weight_key
     self._thresholds = sorted(thresholds)
-    super(_ConfusionMatrixBasedMetric, self).__init__(target_prediction_keys,
-                                                      labels_key, metric_tag)
+    super(_ConfusionMatrixBasedMetric, self).__init__(
+        target_prediction_keys,
+        labels_key,
+        metric_tag,
+        tensor_index=tensor_index)
 
   def check_compatibility(self, features_dict,
                           predictions_dict,
                           labels_dict):
     _check_weight_present(features_dict, self._example_weight_key)
-    self._check_labels_and_predictions(predictions_dict, labels_dict)
+    self._get_labels_and_predictions(predictions_dict, labels_dict)
 
   def joined_confusion_matrix_metric_ops(
       self,
@@ -642,11 +672,10 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
     squeezed_weights = None
     if self._example_weight_key:
       squeezed_weights = tf.squeeze(features_dict[self._example_weight_key])
-    prediction_tensor = tf.cast(
-        _get_target_tensor(predictions_dict, self._target_prediction_keys),
-        tf.float64)
-    label_tensor = tf.cast(
-        _get_target_tensor(labels_dict, [self._labels_key]), tf.float64)
+    predictions, labels = self._get_labels_and_predictions(
+        predictions_dict, labels_dict)
+    prediction_tensor = tf.cast(predictions, tf.float64)
+    label_tensor = tf.cast(labels, tf.float64)
     values, update_ops = metrics_impl._confusion_matrix_at_thresholds(  # pylint: disable=protected-access
         tf.squeeze(label_tensor), tf.squeeze(prediction_tensor),
         self._thresholds, squeezed_weights)
@@ -724,13 +753,15 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
   _thresholds = Ellipsis  # type: List[float]
   _labels_key = Ellipsis  # type: Text
   _metric_tag = Ellipsis  # type: Text
+  _tensor_index = Ellipsis  # type: int
 
   def __init__(self,
                example_weight_key = None,
                num_buckets = _DEFAULT_NUM_BUCKETS,
                target_prediction_keys = None,
                labels_key = None,
-               metric_tag = None):
+               metric_tag = None,
+               tensor_index = None):
     """Create a plot metric for AUROC and AUPRC.
 
     Predictions should be one of:
@@ -746,11 +777,13 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
       example_weight_key: The key of the example weight column in the features
         dict. If None, all predictions are given a weight of 1.0.
       num_buckets: The number of buckets used for plot.
-      target_prediction_keys: Optional acceptable keys in predictions_dict in
-        descending order of precedence.
-      labels_key: Optionally, the key from labels_dict to use.
+      target_prediction_keys: If provided, the prediction keys to look for in
+        order.
+      labels_key: If provided, a custom label key.
       metric_tag: If provided, a custom metric tag. Only necessary to
         disambiguate instances of the same metric on different predictions.
+      tensor_index: Optional index to specify class predictions to calculate
+        metrics on in the case of multi-class models.
     """
     thresholds = [i * 1.0 / num_buckets for i in range(0, num_buckets + 1)]
     thresholds = [-1e-6] + thresholds
@@ -759,7 +792,8 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
         thresholds=thresholds,
         target_prediction_keys=target_prediction_keys,
         labels_key=labels_key,
-        metric_tag=metric_tag)
+        metric_tag=metric_tag,
+        tensor_index=tensor_index)
 
   def get_metric_ops(self, features_dict,
                      predictions_dict,
@@ -804,16 +838,16 @@ class _Auc(_PostExportMetric):
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
   _metric_tag = Ellipsis  # type: Text
+  _tensor_index = Ellipsis  # type: int
 
-  def __init__(
-      self,
-      example_weight_key = None,
-      curve='ROC',
-      num_buckets = _DEFAULT_NUM_BUCKETS,
-      target_prediction_keys = None,
-      labels_key = None,
-      metric_tag = None,
-  ):
+  def __init__(self,
+               example_weight_key = None,
+               curve='ROC',
+               num_buckets = _DEFAULT_NUM_BUCKETS,
+               target_prediction_keys = None,
+               labels_key = None,
+               metric_tag = None,
+               tensor_index = None):
     """Create a metric that computes bounded AUROC or AUPRC.
 
     Predictions should be one of:
@@ -833,11 +867,13 @@ class _Auc(_PostExportMetric):
         tf.metrics.auc() directly.
       num_buckets: The number of buckets used for the curve. (num_buckets + 1)
         is used as the num_thresholds in tf.metrics.auc().
-      target_prediction_keys: Optional acceptable keys in predictions_dict in
-        descending order of precedence.
-      labels_key: Optionally, the key from labels_dict to use.
+      target_prediction_keys: If provided, the prediction keys to look for in
+        order.
+      labels_key: If provided, a custom label key.
       metric_tag: If provided, a custom metric tag. Only necessary to
         disambiguate instances of the same metric on different predictions.
+      tensor_index: Optional index to specify class predictions to calculate
+        metrics on in the case of multi-class models.
 
     Raises:
       ValueError: if the curve is neither 'ROC' nor 'PR'.
@@ -852,13 +888,17 @@ class _Auc(_PostExportMetric):
       self._metric_name = metric_keys.AUPRC
     else:
       raise ValueError('got unsupported curve: %s' % curve)
-    super(_Auc, self).__init__(target_prediction_keys, labels_key, metric_tag)
+    super(_Auc, self).__init__(
+        target_prediction_keys=target_prediction_keys,
+        labels_key=labels_key,
+        metric_tag=metric_tag,
+        tensor_index=tensor_index)
 
   def check_compatibility(self, features_dict,
                           predictions_dict,
                           labels_dict):
     _check_weight_present(features_dict, self._example_weight_key)
-    self._check_labels_and_predictions(predictions_dict, labels_dict)
+    self._get_labels_and_predictions(predictions_dict, labels_dict)
 
   def get_metric_ops(self, features_dict,
                      predictions_dict,
@@ -871,11 +911,10 @@ class _Auc(_PostExportMetric):
     weights = None
     if self._example_weight_key:
       weights = tf.squeeze(features_dict[self._example_weight_key])
-    predictions = tf.squeeze(
-        tf.cast(
-            _get_target_tensor(predictions_dict, self._target_prediction_keys),
-            tf.float64))
-    labels = tf.squeeze(labels_dict)
+    predictions, labels = self._get_labels_and_predictions(
+        predictions_dict, labels_dict)
+    predictions = tf.squeeze(tf.cast(predictions, tf.float64))
+    labels = tf.squeeze(labels)
 
     value_ops, value_update = tf.metrics.auc(
         labels=labels,

@@ -86,6 +86,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         self.assertEqual((), slice_key)
         self.assertDictElementsAlmostEqual(value, expected_values_dict)
       except AssertionError as err:
+        tf.logging.error(got)
         raise util.BeamAssertException(err)
 
     self._runTestWithCustomCheck(
@@ -190,10 +191,36 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     expected_values_dict = {
         metric_keys.EXAMPLE_COUNT: 4.0,
         metric_keys.EXAMPLE_WEIGHT: 15.0,
+        metric_keys.AUC: 0.99999952,
     }
     self._runTest(examples, eval_export_dir, [
         post_export_metrics.example_count(),
-        post_export_metrics.example_weight('age')
+        post_export_metrics.example_weight('age'),
+        post_export_metrics.auc(),
+    ], expected_values_dict)
+
+  def testPostExportMetricsDNNClassifierMultiClass(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = dnn_classifier.simple_dnn_classifier(
+        None, temp_eval_export_dir, n_classes=3)
+    examples = [
+        self._makeExample(age=3.0, language='english', label=0),
+        self._makeExample(age=3.0, language='chinese', label=1),
+        self._makeExample(age=4.0, language='english', label=0),
+        self._makeExample(age=5.0, language='chinese', label=1),
+    ]
+    expected_values_dict = {
+        metric_keys.EXAMPLE_COUNT: 4.0,
+        metric_keys.EXAMPLE_WEIGHT: 15.0,
+        metric_keys.add_metric_prefix(metric_keys.AUC, 'english'): 0.99999952,
+        metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese'): 0.99999952,
+    }
+    self._runTest(examples, eval_export_dir, [
+        post_export_metrics.example_count(),
+        post_export_metrics.example_weight('age'),
+        post_export_metrics.auc(tensor_index=0, metric_tag='english'),
+        post_export_metrics.auc(tensor_index=1, metric_tag='chinese'),
+        post_export_metrics.auc(tensor_index=2, metric_tag='other'),
     ], expected_values_dict)
 
   def testPostExportMetricsLinearRegressor(self):
@@ -1172,7 +1199,6 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     self.assertProtoEquals(expected_plot_data, plot_data)
     self.assertFalse(metric_keys.AUC_PLOTS_MATRICES in tfma_plots)
     self.assertFalse(metric_keys.AUC_PLOTS_THRESHOLDS in tfma_plots)
-
 
 if __name__ == '__main__':
   tf.test.main()
