@@ -205,6 +205,8 @@ class _AggregateCombineFn(beam.CombineFn):
     self._eval_metrics_graph = None  # type: eval_metrics_graph.EvalMetricsGraph
     self._combine_batch_size = beam.metrics.Metrics.distribution(
         constants.METRICS_NAMESPACE, 'combine_batch_size')
+    self._model_load_seconds = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
     self._compute_with_sampling = compute_with_sampling
 
     # We really want the batch size to be adaptive like it is in
@@ -220,20 +222,17 @@ class _AggregateCombineFn(beam.CombineFn):
     # Default to eval_saved_model dofn to preserve legacy assumption
     # of eval_saved_model.
     if self._eval_shared_model.construct_fn is None:
-      model_load_seconds = beam.metrics.Metrics.distribution(
-          constants.METRICS_NAMESPACE, 'model_load_seconds')
+      construct_fn = dofn.make_construct_fn(
+          eval_saved_model_path=self._eval_shared_model.model_path,
+          add_metrics_callbacks=self._eval_shared_model.add_metrics_callbacks,
+          include_default_metrics=True)
       self._eval_metrics_graph = (
           self._eval_shared_model.shared_handle.acquire(
-              dofn.make_construct_fn(
-                  eval_saved_model_path=self._eval_shared_model.model_path,
-                  add_metrics_callbacks=self._eval_shared_model
-                  .add_metrics_callbacks,
-                  include_default_metrics=True,
-                  model_load_seconds=model_load_seconds)))
+              construct_fn(self._model_load_seconds)))
     else:
       self._eval_metrics_graph = (
           self._eval_shared_model.shared_handle.acquire(
-              self._eval_shared_model.construct_fn))
+              self._eval_shared_model.construct_fn(self._model_load_seconds)))
 
   def _poissonify(self, accumulator):
     # pylint: disable=line-too-long
@@ -344,6 +343,8 @@ class _ExtractOutputDoFn(beam.DoFn):
 
   def __init__(self, eval_shared_model):
     self._eval_shared_model = eval_shared_model
+    self._model_load_seconds = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
 
   def start_bundle(self):
     # There's no initialisation method for CombineFns.
@@ -351,20 +352,17 @@ class _ExtractOutputDoFn(beam.DoFn):
     # Default to eval_saved_model dofn to preserve legacy assumption
     # of eval_saved_model.
     if self._eval_shared_model.construct_fn is None:
-      model_load_seconds = beam.metrics.Metrics.distribution(
-          constants.METRICS_NAMESPACE, 'model_load_seconds')
+      construct_fn = dofn.make_construct_fn(
+          eval_saved_model_path=self._eval_shared_model.model_path,
+          add_metrics_callbacks=self._eval_shared_model.add_metrics_callbacks,
+          include_default_metrics=True)
       self._eval_saved_model = (
           self._eval_shared_model.shared_handle.acquire(
-              dofn.make_construct_fn(
-                  eval_saved_model_path=self._eval_shared_model.model_path,
-                  add_metrics_callbacks=self._eval_shared_model
-                  .add_metrics_callbacks,
-                  include_default_metrics=True,
-                  model_load_seconds=model_load_seconds)))
+              construct_fn(self._model_load_seconds)))
     else:
       self._eval_saved_model = (
           self._eval_shared_model.shared_handle.acquire(
-              self._eval_shared_model.construct_fn))
+              self._eval_shared_model.construct_fn(self._model_load_seconds)))
 
   def process(
       self, element

@@ -84,8 +84,7 @@ class EvalSharedModel(
             ('include_default_metrics', bool),
             ('example_weight_key', Text),
             ('shared_handle', shared.Shared),
-            ('construct_fn', Callable),
-            ('model_load_seconds', Any)
+            ('construct_fn', Callable)
         ])):
   # pyformat: disable
   """Shared model used during extraction and evaluation.
@@ -103,9 +102,9 @@ class EvalSharedModel(
       will be 1 for each example.
     shared_handle: Optional handle to a shared.Shared object for sharing the
       in-memory model within / between stages.
-    construct_fn: A callable which constructs the graph on which we run
-      tensorflow operations such as metrics or predictions.
-    model_load_seconds: A beam metric distribution for tracking model load time.
+    construct_fn: A callable which creates a construct function
+      to set up the tensorflow graph. Callable takes a beam.metrics distribution
+      to track graph construction time.
 
   More details on add_metrics_callbacks:
 
@@ -137,12 +136,11 @@ class EvalSharedModel(
       include_default_metrics = True,
       example_weight_key = None,
       shared_handle = None,
-      construct_fn = None,
-      model_load_seconds = None):
+      construct_fn = None):
     if not add_metrics_callbacks:
       add_metrics_callbacks = []
     if not shared_handle:
       shared_handle = shared.Shared()
     return super(EvalSharedModel, cls).__new__(
         cls, model_path, add_metrics_callbacks, include_default_metrics,
-        example_weight_key, shared_handle, construct_fn, model_load_seconds)
+        example_weight_key, shared_handle, construct_fn)

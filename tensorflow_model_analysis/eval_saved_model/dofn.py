@@ -28,22 +28,27 @@ from tensorflow_model_analysis.types_compat import List, Text
 def make_construct_fn(  # pylint: disable=invalid-name
     eval_saved_model_path,
     add_metrics_callbacks,
-    include_default_metrics,
-    model_load_seconds):
+    include_default_metrics):
   """Returns construct function for Shared for constructing EvalSavedModel."""
 
-  def construct():  # pylint: disable=invalid-name
-    """Function for constructing a EvalSavedModel."""
-    start_time = datetime.datetime.now()
-    result = load.EvalSavedModel(eval_saved_model_path, include_default_metrics)
-    if add_metrics_callbacks:
-      result.register_add_metric_callbacks(add_metrics_callbacks)
-    result.graph_finalize()
-    end_time = datetime.datetime.now()
-    model_load_seconds.update(int((end_time - start_time).total_seconds()))
-    return result
+  def construct_fn(model_load_seconds):
+    """Thin wrapper for the actual construct to allow for metrics."""
 
-  return construct
+    def construct():  # pylint: disable=invalid-name
+      """Function for constructing a EvalSavedModel."""
+      start_time = datetime.datetime.now()
+      result = load.EvalSavedModel(eval_saved_model_path,
+                                   include_default_metrics)
+      if add_metrics_callbacks:
+        result.register_add_metric_callbacks(add_metrics_callbacks)
+      result.graph_finalize()
+      end_time = datetime.datetime.now()
+      model_load_seconds.update(int((end_time - start_time).total_seconds()))
+      return result
+
+    return construct
+
+  return construct_fn
 
 
 class EvalSavedModelDoFn(beam.DoFn):
@@ -56,12 +61,13 @@ class EvalSavedModelDoFn(beam.DoFn):
         constants.METRICS_NAMESPACE, 'model_load_seconds')
 
   def start_bundle(self):
+    construct_fn = make_construct_fn(
+        self._eval_shared_model.model_path,
+        self._eval_shared_model.add_metrics_callbacks,
+        self._eval_shared_model.include_default_metrics)
     self._eval_saved_model = (
         self._eval_shared_model.shared_handle.acquire(
-            make_construct_fn(self._eval_shared_model.model_path,
-                              self._eval_shared_model.add_metrics_callbacks,
-                              self._eval_shared_model.include_default_metrics,
-                              self._model_load_seconds)))
+            construct_fn(self._model_load_seconds)))
 
   def process(self, elem):
     raise NotImplementedError('not implemented')

@@ -220,17 +220,15 @@ def default_eval_shared_model(
         example_weight_key)
     add_metrics_callbacks.append(example_weight_callback)
   # pytype: enable=module-attr
-  model_load_seconds = beam.metrics.Metrics.distribution(
-      constants.METRICS_NAMESPACE, 'model_load_seconds')
 
   return types.EvalSharedModel(
       model_path=eval_saved_model_path,
       add_metrics_callbacks=add_metrics_callbacks,
       include_default_metrics=include_default_metrics,
       example_weight_key=example_weight_key,
-      construct_fn=dofn.make_construct_fn(
-          eval_saved_model_path, add_metrics_callbacks, include_default_metrics,
-          model_load_seconds))
+      construct_fn=dofn.make_construct_fn(eval_saved_model_path,
+                                          add_metrics_callbacks,
+                                          include_default_metrics))
 
 
 def default_extractors(  # pylint: disable=invalid-name
