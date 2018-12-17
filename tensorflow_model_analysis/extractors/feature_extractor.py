@@ -34,11 +34,13 @@ from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Te
 _MAX_SPARSE_FEATURES_PER_COLUMN = 10
 
 
-def FeatureExtractor(excludes = None):
+def FeatureExtractor(
+    excludes = None,
+    extract_source = constants.FEATURES_PREDICTIONS_LABELS_KEY):
   # pylint: disable=no-value-for-parameter
   return extractor.Extractor(
       stage_name='ExtractFeatures',
-      ptransform=ExtractFeatures(excludes=excludes))
+      ptransform=ExtractFeatures(excludes=excludes, source=extract_source))
   # pylint: enable=no-value-for-parameter
 
 
@@ -77,9 +79,27 @@ def _AugmentExtracts(fpl_dict,
           (name, val, type(val)))
 
 
+def _ParseExample(extracts):
+  """Feature extraction from serialized tf.Example."""
+  # Deserialize the example.
+  example = tf.train.Example()
+  example.ParseFromString(extracts[constants.INPUT_KEY])
+
+  for name in example.features.feature:
+    value = example.features.feature[name]
+    if value.HasField('bytes_list'):
+      values = [v for v in value.bytes_list.value]
+    elif value.HasField('float_list'):
+      values = [v for v in value.float_list.value]
+    elif value.HasField('int64_list'):
+      values = [v for v in value.int64_list.value]
+    extracts[name] = types.MaterializedColumn(name=name, value=values)
+
+
 def _MaterializeFeatures(
     extracts,
-    excludes = None):
+    excludes = None,
+    source = constants.FEATURES_PREDICTIONS_LABELS_KEY):
   """Converts FeaturesPredictionsLabels into MaterializedColumn in the extract.
 
   It must be the case that the PredictExtractor was called before calling this
@@ -89,34 +109,47 @@ def _MaterializeFeatures(
     extracts: The Extracts to be augmented.
     excludes: Optional list of strings containing features, predictions, or
       labels to exclude from materialization.
+    source: Source for extracting features. Currently it supports extracting
+      features from FPLs and input tf.Example protos.
 
   Returns:
-    Returns an augmented Extracts (which is a shallow copy of the original
-    Extracts, so the original isn't mutated)
+    Returns Extracts (which is a shallow copy of the original Extracts, so the
+      original isn't mutated) with features populated.
 
   Raises:
-    RuntimeError: When _Predict() didn't populate the 'fpl' key.
+    RuntimeError: When 'fpl' key is not populated by PredictExtractor for FPL
+      source or incorrect extraction source given.
   """
   # Make a a shallow copy, so we don't mutate the original.
   result = copy.copy(extracts)
 
-  fpl = result.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
-  if not fpl:
-    raise RuntimeError('FPL missing, Please ensure _Predict() was called.')
+  if source == constants.FEATURES_PREDICTIONS_LABELS_KEY:
+    fpl = result.get(constants.FEATURES_PREDICTIONS_LABELS_KEY)
+    if not fpl:
+      raise RuntimeError('FPL missing. Ensure PredictExtractor was called.')
 
-  if not isinstance(fpl, types.FeaturesPredictionsLabels):
-    raise TypeError(
-        'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: %s '
-        'of type %s' % (str(fpl), type(fpl)))
+    if not isinstance(fpl, types.FeaturesPredictionsLabels):
+      raise TypeError(
+          'Expected FPL to be instance of FeaturesPredictionsLabel. FPL was: %s'
+          'of type %s' % (str(fpl), type(fpl)))
 
-  # We disable pytyping here because we know that 'fpl' key corresponds to a
-  # non-materialized column.
-  # pytype: disable=attribute-error
-  _AugmentExtracts(fpl.features, excludes, result)
-  _AugmentExtracts(fpl.predictions, excludes, result)
-  _AugmentExtracts(fpl.labels, excludes, result)
-  return result
-  # pytype: enable=attribute-error
+    # We disable pytyping here because we know that 'fpl' key corresponds to a
+    # non-materialized column.
+    # pytype: disable=attribute-error
+    _AugmentExtracts(fpl.features, excludes, result)
+    _AugmentExtracts(fpl.predictions, excludes, result)
+    _AugmentExtracts(fpl.labels, excludes, result)
+    # pytype: enable=attribute-error
+    return result
+  elif source == constants.INPUT_KEY:
+    serialized_example = result.get(constants.INPUT_KEY)
+    if not serialized_example:
+      raise RuntimeError('tf.Example missing. Ensure extracts contain '
+                         'serialized tf.Example.')
+    _ParseExample(result)
+    return result
+  else:
+    raise RuntimeError('Unsupported feature extraction source.')
 
 
 @beam.ptransform_fn
@@ -124,7 +157,9 @@ def _MaterializeFeatures(
 @beam.typehints.with_output_types(beam.typehints.Any)
 def ExtractFeatures(
     extracts,
-    excludes = None):
+    excludes = None,
+    source = constants.FEATURES_PREDICTIONS_LABELS_KEY
+    ):
   """Builds MaterializedColumn extracts from FPL created in evaluate.Predict().
 
   It must be the case that the PredictExtractor was called before calling this
@@ -135,9 +170,12 @@ def ExtractFeatures(
       MaterializedColumn added to.
     excludes: Optional list of strings containing features, predictions, or
       labels to exclude from materialization.
+    source: Source for extracting features. Currently it supports extracting
+      features from FPLs and input tf.Example protos.
 
   Returns:
     PCollection of Extracts
   """
   return extracts | 'MaterializeFeatures' >> beam.Map(_MaterializeFeatures,
-                                                      excludes=excludes)
+                                                      excludes=excludes,
+                                                      source=source)
