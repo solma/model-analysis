@@ -191,12 +191,10 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     expected_values_dict = {
         metric_keys.EXAMPLE_COUNT: 4.0,
         metric_keys.EXAMPLE_WEIGHT: 15.0,
-        metric_keys.AUC: 0.99999952,
     }
     self._runTest(examples, eval_export_dir, [
         post_export_metrics.example_count(),
         post_export_metrics.example_weight('age'),
-        post_export_metrics.auc(),
     ], expected_values_dict)
 
   def testPostExportMetricsDNNClassifierMultiClass(self):
@@ -212,16 +210,41 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     expected_values_dict = {
         metric_keys.EXAMPLE_COUNT: 4.0,
         metric_keys.EXAMPLE_WEIGHT: 15.0,
-        metric_keys.add_metric_prefix(metric_keys.AUC, 'english'): 0.99999952,
-        metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese'): 0.99999952,
     }
-    self._runTest(examples, eval_export_dir, [
-        post_export_metrics.example_count(),
-        post_export_metrics.example_weight('age'),
-        post_export_metrics.auc(tensor_index=0, metric_tag='english'),
-        post_export_metrics.auc(tensor_index=1, metric_tag='chinese'),
-        post_export_metrics.auc(tensor_index=2, metric_tag='other'),
-    ], expected_values_dict)
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertDictElementsAlmostEqual(value, expected_values_dict)
+        # Though the answer is almost always 0.99999952, occasionally the value
+        # is as low as ~0.25. Check for this to keep test from being flaky.
+        # When the labels are incorrect for this evaluation, the AUC value is
+        # ~0.0 which happens very rarely otherwise (~1/2000).
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.AUC, 'english'), value)
+        self.assertGreaterEqual(
+            value[metric_keys.add_metric_prefix(metric_keys.AUC, 'english')],
+            0.25)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese'), value)
+        self.assertGreaterEqual(
+            value[metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese')],
+            0.25)
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [
+            post_export_metrics.example_count(),
+            post_export_metrics.example_weight('age'),
+            post_export_metrics.auc(tensor_index=0, metric_tag='english'),
+            post_export_metrics.auc(tensor_index=1, metric_tag='chinese'),
+            post_export_metrics.auc(tensor_index=2, metric_tag='other'),
+        ],
+        custom_metrics_check=check_result)
 
   def testPostExportMetricsLinearRegressor(self):
     temp_eval_export_dir = self._getEvalExportDir()
