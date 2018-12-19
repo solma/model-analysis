@@ -24,6 +24,7 @@ from __future__ import print_function
 
 import abc
 
+import numpy as np
 from six import with_metaclass
 import tensorflow as tf
 from tensorflow_model_analysis import types
@@ -558,6 +559,53 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
       )
 
 
+def _flatten_to_one_dim(tensor):
+  # We use this instead of squeeze so we don't squeeze out a Tensor with
+  # shape [0]. Squeezing a Tensor with shape [0] results in a shape of [],
+  # which makes concat unhappy.
+  return tf.reshape(tensor, [tf.size(tensor)])
+
+
+def _create_predictions_labels_weights_for_fractional_labels(
+    prediction_tensor, label_tensor, weight_tensor):
+  """Creates updated predictions, labels, weights Tensors for fractional labels.
+
+  Assumes labels are in [0, 1].
+
+  We treat an example with fractional label as two separate examples, one with
+  positive label and one with negative label, where each example is weighted by
+  the label accordingly.
+
+  More concretely, an example with prediction p, label l and weight w becomes
+  two examples:
+   - one with prediction p, label 1.0, and weight w * l
+   - one with prediction p, label 0.0, and weight w * (1.0 - l)
+
+  Args:
+    prediction_tensor: Prediction tensor (should have dim N).
+    label_tensor: Label tensor (should have dim N).
+    weight_tensor: Weight tensor (should have dim N).
+
+  Returns:
+    Tuple of updated (prediction_tensor, label_tensor, weight_tensor).
+  """
+
+  with tf.control_dependencies([
+      tf.assert_greater_equal(label_tensor, np.float64(0.0)),
+      tf.assert_less_equal(label_tensor, np.float64(1.0))
+  ]):
+    return (
+        tf.concat([prediction_tensor, prediction_tensor], axis=0),
+        tf.concat([tf.ones_like(label_tensor),
+                   tf.zeros_like(label_tensor)],
+                  axis=0),
+        tf.concat([
+            weight_tensor * label_tensor, weight_tensor * (1.0 - label_tensor)
+        ],
+                  axis=0),
+    )
+
+
 class _ConfusionMatrixBasedMetric(_PostExportMetric):
   """Base class for metrics that use confusion matrices."""
 
@@ -669,16 +717,20 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
     # N element vectors (otherwise some of them might be N x 1 tensors, and
     # multiplying a N element vector with a N x 1 tensor uses matrix
     # multiplication rather than element-wise multiplication).
-    squeezed_weights = None
-    if self._example_weight_key:
-      squeezed_weights = tf.squeeze(features_dict[self._example_weight_key])
     predictions, labels = self._get_labels_and_predictions(
         predictions_dict, labels_dict)
-    prediction_tensor = tf.cast(predictions, tf.float64)
-    label_tensor = tf.cast(labels, tf.float64)
+    prediction_tensor = _flatten_to_one_dim(tf.cast(predictions, tf.float64))
+    label_tensor = _flatten_to_one_dim(tf.cast(labels, tf.float64))
+    squeezed_weights = tf.ones_like(prediction_tensor)
+    if self._example_weight_key:
+      squeezed_weights = _flatten_to_one_dim(
+          tf.cast(features_dict[self._example_weight_key], tf.float64))
+    prediction_tensor, label_tensor, squeezed_weights = (
+        _create_predictions_labels_weights_for_fractional_labels(
+            prediction_tensor, label_tensor, squeezed_weights))
+
     values, update_ops = metrics_impl._confusion_matrix_at_thresholds(  # pylint: disable=protected-access
-        tf.squeeze(label_tensor), tf.squeeze(prediction_tensor),
-        self._thresholds, squeezed_weights)
+        label_tensor, prediction_tensor, self._thresholds, squeezed_weights)
 
     values['precision'] = values['tp'] / (values['tp'] + values['fp'])
     values['recall'] = values['tp'] / (values['tp'] + values['fn'])
@@ -908,13 +960,18 @@ class _Auc(_PostExportMetric):
     # N element vectors (otherwise some of them might be N x 1 tensors, and
     # multiplying a N element vector with a N x 1 tensor uses matrix
     # multiplication rather than element-wise multiplication).
-    weights = None
-    if self._example_weight_key:
-      weights = tf.squeeze(features_dict[self._example_weight_key])
     predictions, labels = self._get_labels_and_predictions(
         predictions_dict, labels_dict)
-    predictions = tf.squeeze(tf.cast(predictions, tf.float64))
-    labels = tf.squeeze(labels)
+    predictions = _flatten_to_one_dim(tf.cast(predictions, tf.float64))
+    labels = _flatten_to_one_dim(tf.cast(labels, tf.float64))
+    weights = tf.ones_like(predictions)
+    if self._example_weight_key:
+      weights = _flatten_to_one_dim(
+          tf.cast(features_dict[self._example_weight_key], tf.float64))
+
+    predictions, labels, weights = (
+        _create_predictions_labels_weights_for_fractional_labels(
+            predictions, labels, weights))
 
     value_ops, value_update = tf.metrics.auc(
         labels=labels,
@@ -1038,7 +1095,8 @@ class _PrecisionRecallAtK(_PostExportMetric):
 
     squeezed_weights = None
     if self._example_weight_key:
-      squeezed_weights = tf.squeeze(features_dict[self._example_weight_key])
+      squeezed_weights = _flatten_to_one_dim(
+          features_dict[self._example_weight_key])
 
     labels = labels_dict
     if self._labels_key:

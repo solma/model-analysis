@@ -1087,7 +1087,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         metric_keys.AUC: 0.58333,
         metric_keys.lower_bound(metric_keys.AUC): 0.5,
         metric_keys.upper_bound(metric_keys.AUC): 0.66667,
-        metric_keys.lower_bound(metric_keys.AUPRC): 0.74075,
+        metric_keys.AUPRC: 0.74075,
         metric_keys.lower_bound(metric_keys.AUPRC): 0.70000,
         metric_keys.upper_bound(metric_keys.AUPRC): 0.77778,
     }
@@ -1151,6 +1151,121 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         examples,
         eval_export_dir, [auc_metric],
         custom_metrics_check=check_result)
+
+  def testAucUnweightedFractionalLabels(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_estimator.simple_fixed_prediction_estimator(
+            None, temp_eval_export_dir))
+    examples = [
+        self._makeExample(prediction=0.0000, label=0.0000),
+        self._makeExample(prediction=0.7000, label=0.6000),
+        self._makeExample(prediction=1.0000, label=0.8000),
+    ]
+
+    # This expands out to:
+    #
+    # prediction | label | weight
+    #     0.0    |   -   |  1.0
+    #     0.7    |   -   |  0.4
+    #     0.7    |   +   |  0.6
+    #     1.0    |   -   |  0.2
+    #     1.0    |   +   |  0.8
+    #
+    # The AUC is (0.8 / 1.4 * (1.0 + 0.4 + 0.2 * 0.5) / 1.6) +
+    #            (0.6 / 1.4 * (1.0 + 0.4 * 0.5) / 1.6)
+    #          = 0.857143
+    #
+    # threshold |  TP  |  FP  | precision | recall
+    # all +     |  1.4 |  1.6 | 0.46666   | 1.0
+    # >0.0      |  1.4 |  0.6 | 0.7       | 1.0
+    # >0.7      |  0.8 |  0.2 | 0.8       | 0.571428
+    # all -     |  0.0 |  0.0 | N/A       | 0.0
+    #
+    # Using the trapezoidial estimate, we compute the AUPRC as follows:
+    # AUPRC = 0.8(0.571428) + 0.5(0.571428)(0.2) +
+    #         0.7(1-0.571428) + 0.5(1-0.571428)(0.1) = 0.8357143
+    #
+    # However, note that we are now using the 'careful_interpolation' estimate,
+    # which gives a different estimate.
+
+    expected_values_dict = {
+        metric_keys.AUC:
+            0.8571425,
+        metric_keys.lower_bound(metric_keys.AUC):
+            0.7678569,
+        metric_keys.upper_bound(metric_keys.AUC):
+            0.94642806,
+        # Note that 'trapeozidal' produces an AUPRC of 0.8357143, which
+        # agrees with the old Lantern, but we are now using
+        # 'careful_interpolation', which gives this estimate instead.
+        metric_keys.AUPRC:
+            0.773698,
+        metric_keys.lower_bound(metric_keys.AUPRC):
+            0.75714254,
+        metric_keys.upper_bound(metric_keys.AUPRC):
+            0.91428518,
+    }
+
+    self._runTest(
+        examples, eval_export_dir,
+        [post_export_metrics.auc(),
+         post_export_metrics.auc(curve='PR')], expected_values_dict)
+
+  def testAucWeightedFractionalLabels(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_estimator_extra_fields
+        .simple_fixed_prediction_estimator_extra_fields(None,
+                                                        temp_eval_export_dir))
+
+    # Same set of examples as in the unweighted case, except this time
+    # with weights.
+    examples = [
+        self._makeExample(
+            prediction=0.0000,
+            label=0.0000,
+            fixed_float=1.0,
+            fixed_string='',
+            fixed_int=5),
+        self._makeExample(
+            prediction=0.7000,
+            label=0.6000,
+            fixed_float=0.5,
+            fixed_string='',
+            fixed_int=5),
+        self._makeExample(
+            prediction=1.0000,
+            label=0.8000,
+            fixed_float=2.0,
+            fixed_string='',
+            fixed_int=5),
+    ]
+
+    # This expands out to:
+    #
+    # prediction | label | weight
+    #     0.0    |   -   |  1.0
+    #     0.7    |   -   |  0.2
+    #     0.7    |   +   |  0.3
+    #     1.0    |   -   |  0.4
+    #     1.0    |   +   |  1.6
+    #
+    # The AUC is (1.6 / 1.9 * 1.4 / 1.6) + (0.3 / 1.9 * 1.1 / 1.6) = 0.8453947
+
+    expected_values_dict = {
+        metric_keys.AUC: 0.8453947,
+        metric_keys.lower_bound(metric_keys.AUC): 0.73026288,
+        metric_keys.upper_bound(metric_keys.AUC): 0.96052581,
+        metric_keys.AUPRC: 0.79660767,
+        metric_keys.lower_bound(metric_keys.AUPRC): 0.79368389,
+        metric_keys.upper_bound(metric_keys.AUPRC): 0.96842057,
+    }
+
+    self._runTest(examples, eval_export_dir, [
+        post_export_metrics.auc(example_weight_key='fixed_float'),
+        post_export_metrics.auc(curve='PR', example_weight_key='fixed_float')
+    ], expected_values_dict)
 
   def testAucPlotSerialization(self):
     # Auc for the model

@@ -2,18 +2,24 @@
 
 ## Major Features and Improvements
 
-*  Added support for excluding the default metrics from the saved model graph
-   during evaluation.
+*   Added support for excluding the default metrics from the saved model graph
+    during evaluation.
 
 ## Bug fixes and other changes
 
-* We now store feature and label Tensor information in SignatureDef inputs
-  instead of Collections in anticipation of Collections being deprecated in
-  TF 2.0.
+*   We now store feature and label Tensor information in SignatureDef inputs
+    instead of Collections in anticipation of Collections being deprecated in TF
+    2.0.
+*   Add support for fractional labels in AUC, AUPRC and confusion matrix at
+    thresholds. Previously the labels were being passed directly to TensorFlow,
+    which would cast them to `bool`, which meant that all non-zero labels were
+    treated as positive examples. Now we treat a fractional label `l` in `[0,
+    1]` as two examples, a positive example with weight `l` and a negative
+    example with weight `1 - l`.
 
 ## Breaking changes
 
-*  Moved tfma.SingleSliceSpec to tfma.slicer.SingleSliceSpec.
+*   Moved tfma.SingleSliceSpec to tfma.slicer.SingleSliceSpec.
 
 ## Deprecations
 
