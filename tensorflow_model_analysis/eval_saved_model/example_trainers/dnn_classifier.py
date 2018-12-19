@@ -43,7 +43,7 @@ def build_parsing_eval_input_receiver_fn(feature_spec, label_key):
 
     if isinstance(labels, tf.SparseTensor):
       # This bit here is why a custom eval_input_receiver_fn is specified.
-      labels = tf.sparse_tensor_to_dense(labels)
+      labels = tf.sparse_tensor_to_dense(labels, default_value=-1)
 
     return export.EvalInputReceiver(
         features=features,

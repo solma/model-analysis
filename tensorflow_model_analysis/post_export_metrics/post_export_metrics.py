@@ -198,24 +198,36 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
     self._metric_tag = metric_tag
 
   def _select_class(self, predictions_tensor, labels_tensor):
-    predictions_shape = tf.shape(predictions_tensor)
-    labels_shape = tf.shape(labels_tensor)
+    """Gets predictions and labels for the class at index self._tensor_index."""
 
-    def return_tensors_at_index():
-      return predictions_tensor[:, self._tensor_index], tf.cast(
+    def make_multi_hot_labels():
+      """Converts class index labels to mutli-hot vector."""
+      tf.logging.info(
+          'Labels has unknown static shape in dimension 1, indicating a class '
+          'index tensor. '
+          'Trying to transform labels into one_hot labels for analysis.')
+      # One-hot vector for each class index in labels.
+      # Result has shape [batch_size, max_num_classes_in_batch, depth]
+      one_hots_per_class = tf.one_hot(
+          indices=labels_tensor, depth=predictions_tensor.shape[1],
+          axis=-1)
+      # Sum one-hot vectors to make a multi-hot vector representing all classes.
+      return tf.reduce_sum(one_hots_per_class, axis=1)
+
+    labels_tensor.shape.assert_has_rank(2)
+    if labels_tensor.shape[1].value is None:
+      labels_tensor = make_multi_hot_labels()
+
+    assert_op = tf.Assert(
+        tf.reduce_all(
+            tf.equal(tf.shape(predictions_tensor), tf.shape(labels_tensor))),
+        [predictions_tensor, labels_tensor])
+    with tf.control_dependencies([assert_op]):
+      predictions_for_class = predictions_tensor[:, self._tensor_index]
+      labels_for_class = tf.cast(
           labels_tensor[:, self._tensor_index], tf.float32)
 
-    def try_one_hot_labels():
-      tf.logging.info('Labels and Predictions size did not match. Trying to '
-                      'transform labels into one_hot labels for analysis.')
-      labels = tf.one_hot(
-          indices=labels_tensor, depth=predictions_shape[1],
-          axis=0)[self._tensor_index]
-      return predictions_tensor[:, self._tensor_index], labels
-
-    return tf.cond(
-        tf.reduce_all(tf.equal(predictions_shape, labels_shape)),
-        return_tensors_at_index, try_one_hot_labels)
+    return predictions_for_class, labels_for_class
 
   def _get_labels_and_predictions(
       self, predictions_dict,

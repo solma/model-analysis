@@ -85,7 +85,7 @@ def make_classifier_input_fn(feature_spec, n_classes=2):
     features = tf.parse_example(serialized_examples, feature_spec)
     labels = features.pop('label')
     if n_classes > 2:
-      labels = tf.sparse_tensor_to_dense(labels)
+      labels = tf.sparse_tensor_to_dense(labels, default_value=-1)
 
     return features, labels
 
