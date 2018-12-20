@@ -70,15 +70,6 @@ message ConfusionMatrixAtThresholds {
   repeated ConfusionMatrixAtThreshold matrices = 1;
 }
 
-// Represents a computed result for a ratio value, optionally with an associated
-// confidence interval. Computing confidence intervals of ratios requires
-// keeping track of the aggregated numerator and denominator separately.
-message RatioValue {
-  google.protobuf.DoubleValue numerator = 1;
-  google.protobuf.DoubleValue denominator = 2;
-  BoundedValue ratio = 3;
-}
-
 // For metrics which return an array of values.
 message ArrayValue {
   enum DataType {
@@ -113,8 +104,9 @@ message MetricValue {
     UnknownType unknown_type = 3;
     bytes bytes_value = 6;
     ArrayValue array_value = 7;
-    RatioValue ratio_value = 8;
   }
+
+  reserved 8;
 }
 
 // A single slice key.
