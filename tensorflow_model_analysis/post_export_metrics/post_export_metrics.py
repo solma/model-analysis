@@ -208,16 +208,26 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
           'Labels has unknown static shape in dimension 1, indicating a class '
           'index tensor. '
           'Trying to transform labels into one_hot labels for analysis.')
-      # One-hot vector for each class index in labels.
-      # Result has shape [batch_size, max_num_classes_in_batch, depth]
-      one_hots_per_class = tf.one_hot(
-          indices=labels_tensor, depth=predictions_tensor.shape[1],
-          axis=-1)
-      # Sum one-hot vectors to make a multi-hot vector representing all classes.
-      return tf.reduce_sum(one_hots_per_class, axis=1)
+      # Ensure that predictions has the appropriate rank and that the number of
+      # classes in predictions > 1.
+      predictions_tensor.shape.assert_has_rank(2)
+      assert_op = tf.Assert(
+          tf.greater_equal(tf.shape(predictions_tensor)[1], 1),
+          [predictions_tensor])
+      with tf.control_dependencies([assert_op]):
+        # One-hot vector for each class index in labels.
+        # Result has shape [batch_size, max_num_classes_in_batch, depth]
+        one_hots_per_class = tf.one_hot(
+            indices=labels_tensor,
+            depth=tf.shape(predictions_tensor)[1],
+            axis=-1)
+        # Sum one-hot vectors to make a multi-hot vector representing all
+        # classes.
+        return tf.reduce_sum(one_hots_per_class, axis=1)
 
     labels_tensor.shape.assert_has_rank(2)
-    if labels_tensor.shape[1].value is None:
+    if (labels_tensor.shape[1].value is None or
+        labels_tensor.shape[1].value == 1 and self._tensor_index is not None):
       labels_tensor = make_multi_hot_labels()
 
     assert_op = tf.Assert(

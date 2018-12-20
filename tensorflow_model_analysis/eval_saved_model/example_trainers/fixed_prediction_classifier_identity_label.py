@@ -16,8 +16,8 @@
 This model generates (class, score) pairs from zipping the "classes" and
 "scores" features.
 
-The eval_input_receiver_fn also parses the "fixed_float", "fixed_string",
-"fixed_int", and "var_float", "var_string", "var_int" features.
+The eval_input_receiver_fn includes a label that is a single class identifier.
+It also parses "language" and "age" features.
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -32,9 +32,8 @@ from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_pr
 from tensorflow_model_analysis.eval_saved_model.example_trainers import util
 
 
-def simple_fixed_prediction_classifier_extra_fields(export_path,
-                                                    eval_export_path):
-  """Exports a simple fixed prediction classifier that parses extra fields."""
+def simple_fixed_prediction_classifier(export_path, eval_export_path):
+  """Exports a simple fixed prediction classifier."""
 
   estimator = tf.estimator.Estimator(
       model_fn=fixed_prediction_classifier.model_fn)
@@ -50,15 +49,11 @@ def simple_fixed_prediction_classifier_extra_fields(export_path,
       feature_spec={
           'classes': tf.VarLenFeature(dtype=tf.string),
           'scores': tf.VarLenFeature(dtype=tf.float32),
-          'labels': tf.VarLenFeature(dtype=tf.string),
-          'fixed_float': tf.FixedLenFeature([1], dtype=tf.float32),
-          'fixed_string': tf.FixedLenFeature([1], dtype=tf.string),
-          'fixed_int': tf.FixedLenFeature([1], dtype=tf.int64),
-          'var_float': tf.VarLenFeature(dtype=tf.float32),
-          'var_string': tf.VarLenFeature(dtype=tf.string),
-          'var_int': tf.VarLenFeature(dtype=tf.int64),
+          'label': tf.FixedLenFeature([1], dtype=tf.int64),
+          'language': tf.FixedLenFeature([1], dtype=tf.string),
+          'age': tf.FixedLenFeature([1], dtype=tf.float32),
       },
-      label_key='labels')
+      label_key='label')
 
   return util.export_model_and_eval_model(
       estimator=estimator,

@@ -33,6 +33,7 @@ from tensorflow_model_analysis.eval_saved_model.example_trainers import dnn_clas
 from tensorflow_model_analysis.eval_saved_model.example_trainers import dnn_regressor
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_classifier
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_classifier_extra_fields
+from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_classifier_identity_label
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_estimator
 from tensorflow_model_analysis.eval_saved_model.example_trainers import fixed_prediction_estimator_extra_fields
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
@@ -217,20 +218,14 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         (slice_key, value) = got[0]
         self.assertEqual((), slice_key)
         self.assertDictElementsAlmostEqual(value, expected_values_dict)
-        # Though the answer is almost always 0.99999952, occasionally the value
-        # is as low as ~0.25. Check for this to keep test from being flaky.
-        # When the labels are incorrect for this evaluation, the AUC value is
-        # ~0.0 which happens very rarely otherwise (~1/2000).
+        # Check that AUC was calculated for each class. We can't check the exact
+        # values since we don't know the exact prediction of the model.
         self.assertIn(
             metric_keys.add_metric_prefix(metric_keys.AUC, 'english'), value)
-        self.assertGreaterEqual(
-            value[metric_keys.add_metric_prefix(metric_keys.AUC, 'english')],
-            0.25)
         self.assertIn(
             metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese'), value)
-        self.assertGreaterEqual(
-            value[metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese')],
-            0.25)
+        self.assertIn(
+            metric_keys.add_metric_prefix(metric_keys.AUC, 'other'), value)
       except AssertionError as err:
         raise util.BeamAssertException(err)
 
@@ -244,6 +239,59 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
             post_export_metrics.auc(tensor_index=2, metric_tag='other'),
         ],
         custom_metrics_check=check_result)
+
+  def testPostExportMetricsMultiClassFixedPrediction(self):
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_classifier_identity_label
+        .simple_fixed_prediction_classifier(
+            None, temp_eval_export_dir))
+    examples = [
+        self._makeExample(
+            age=3.0,
+            language='english',
+            label=0,
+            classes=['english', 'chinese', 'other'],
+            scores=[0.9, 0.0, 0.0]),
+        self._makeExample(
+            age=3.0,
+            language='chinese',
+            label=1,
+            classes=['english', 'chinese', 'other'],
+            scores=[0.0, 0.99, 0.0]),
+        self._makeExample(
+            age=4.0,
+            language='english',
+            label=0,
+            classes=['english', 'chinese', 'other'],
+            scores=[0.99, 0.0, 0.0]),
+        self._makeExample(
+            age=5.0,
+            language='chinese',
+            label=1,
+            classes=['english', 'chinese', 'other'],
+            scores=[0.0, 0.89, 0.0]),
+        self._makeExample(
+            age=5.0,
+            language='other',
+            label=2,
+            classes=['english', 'chinese', 'other'],
+            scores=[0.0, 0.0, 0.99]),
+    ]
+    expected_values_dict = {
+        metric_keys.EXAMPLE_COUNT: 5.0,
+        metric_keys.EXAMPLE_WEIGHT: 20.0,
+        metric_keys.add_metric_prefix(metric_keys.AUC, 'english'): 0.99999952,
+        metric_keys.add_metric_prefix(metric_keys.AUC, 'chinese'): 0.9999997,
+        metric_keys.add_metric_prefix(metric_keys.AUC, 'other'): 0.99999952,
+    }
+    self._runTest(examples, eval_export_dir, [
+        post_export_metrics.example_count(),
+        post_export_metrics.example_weight('age'),
+        post_export_metrics.auc(tensor_index=0, metric_tag='english'),
+        post_export_metrics.auc(tensor_index=1, metric_tag='chinese'),
+        post_export_metrics.auc(tensor_index=2, metric_tag='other'),
+    ], expected_values_dict)
 
   def testPostExportMetricsLinearRegressor(self):
     temp_eval_export_dir = self._getEvalExportDir()
