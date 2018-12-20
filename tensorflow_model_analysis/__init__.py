@@ -41,6 +41,7 @@ from tensorflow_model_analysis.api.model_eval_lib import WriteResults
 
 from tensorflow_model_analysis.constants import ANALYSIS_KEY
 from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
+from tensorflow_model_analysis.constants import FEATURES_PREDICTIONS_LABELS_KEY
 from tensorflow_model_analysis.constants import INPUT_KEY
 from tensorflow_model_analysis.constants import METRICS_KEY
 from tensorflow_model_analysis.constants import MODEL_CENTRIC_MODE
@@ -54,6 +55,7 @@ from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 
 from tensorflow_model_analysis.types import EvalSharedModel
 from tensorflow_model_analysis.types import Extracts
+from tensorflow_model_analysis.types import FeaturesPredictionsLabels
 from tensorflow_model_analysis.types import TensorType
 from tensorflow_model_analysis.types import TensorTypeMaybeDict
 
