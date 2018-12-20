@@ -39,10 +39,12 @@ Evaluation = Dict[Text, beam.pvalue.PCollection]
 Note that `tfma.Extracts` are never written out directly they must always go
 through an evaluator to produce a `tfma.evaluators.Evaluation` that is then
 written out. Also note that `tfma.Extracts` are dicts that are stored in a
-`beam.pvalue.PCollection` whereas a `tfma.evaluators.Evaluation` is a dict whose
-values are `beam.pvalue.PCollection`s. In other words the
-`tfma.evaluators.Evaluation` is used at pipeline construction time, but the
-`tfma.Extracts` are used at pipeline runtime.
+`beam.pvalue.PCollection` (i.e. `beam.PTransform`s take as input
+`beam.pvalue.PCollection[tfma.Extracts]`) whereas a `tfma.evaluators.Evaluation`
+is a dict whose values are `beam.pvalue.PCollection`s (i.e. `beam.PTransform`s
+take the dict itself as the argument for the `beam.value.PCollection` input). In
+other words the `tfma.evaluators.Evaluation` is used at pipeline construction
+time, but the `tfma.Extracts` are used at pipeline runtime.
 
 ## Read Inputs
 
