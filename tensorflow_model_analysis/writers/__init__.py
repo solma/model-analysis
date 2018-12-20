@@ -13,3 +13,5 @@
 # limitations under the License.
 """Init module for TensorFlow Model Analysis writers."""
 
+from tensorflow_model_analysis.writers.writer import Write
+from tensorflow_model_analysis.writers.writer import Writer

@@ -13,3 +13,8 @@
 # limitations under the License.
 """Init module for TensorFlow Model Analysis extractors."""
 
+from tensorflow_model_analysis.extractors import meta_feature_extractor
+from tensorflow_model_analysis.extractors.extractor import Extractor
+from tensorflow_model_analysis.extractors.feature_extractor import FeatureExtractor
+from tensorflow_model_analysis.extractors.predict_extractor import PredictExtractor
+from tensorflow_model_analysis.extractors.slice_key_extractor import SliceKeyExtractor

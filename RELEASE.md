@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*   Added support for customizing the pipeline (via extractors, evaluators, and
+    writers). See [architecture](g3doc/architecture.md) for more details.
 *   Added support for excluding the default metrics from the saved model graph
     during evaluation.
 

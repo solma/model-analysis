@@ -16,17 +16,28 @@
 
 from tensorflow_model_analysis import view
 # pylint: disable=unused-import
+from tensorflow_model_analysis import evaluators
+from tensorflow_model_analysis import extractors
 from tensorflow_model_analysis import slicer
+from tensorflow_model_analysis import writers
 from tensorflow_model_analysis.api import tfma_unit as test
 
 from tensorflow_model_analysis.api.model_eval_lib import default_eval_shared_model
+from tensorflow_model_analysis.api.model_eval_lib import default_evaluators
+from tensorflow_model_analysis.api.model_eval_lib import default_extractors
+from tensorflow_model_analysis.api.model_eval_lib import default_writers
+from tensorflow_model_analysis.api.model_eval_lib import EvalConfig
+from tensorflow_model_analysis.api.model_eval_lib import EvalResult
+from tensorflow_model_analysis.api.model_eval_lib import ExtractAndEvaluate
 from tensorflow_model_analysis.api.model_eval_lib import ExtractEvaluateAndWriteResults
+from tensorflow_model_analysis.api.model_eval_lib import InputsToExtracts
 from tensorflow_model_analysis.api.model_eval_lib import load_eval_result
 from tensorflow_model_analysis.api.model_eval_lib import load_eval_results
 from tensorflow_model_analysis.api.model_eval_lib import make_eval_results
 from tensorflow_model_analysis.api.model_eval_lib import multiple_data_analysis
 from tensorflow_model_analysis.api.model_eval_lib import multiple_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import run_model_analysis
+from tensorflow_model_analysis.api.model_eval_lib import WriteResults
 
 from tensorflow_model_analysis.constants import ANALYSIS_KEY
 from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
@@ -41,6 +52,10 @@ from tensorflow_model_analysis.eval_saved_model import exporter
 
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 
+from tensorflow_model_analysis.types import EvalSharedModel
+from tensorflow_model_analysis.types import Extracts
+from tensorflow_model_analysis.types import TensorType
+from tensorflow_model_analysis.types import TensorTypeMaybeDict
 
 from tensorflow_model_analysis.version import VERSION_STRING
 
