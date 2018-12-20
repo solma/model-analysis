@@ -144,7 +144,7 @@ def _check_weight_present(features_dict,
         'features were: %s' % (example_weight_key, features_dict.keys()))
 
 
-def _populate_to_bounded_value_and_pop(
+def _populate_to_auc_bounded_value_and_pop(
     combined_metrics,
     output_metrics,
     metric_key):
@@ -170,6 +170,8 @@ def _populate_to_bounded_value_and_pop(
           metric_keys.upper_bound(metric_key))
   output_metrics[metric_key].bounded_value.value.value = combined_metrics.pop(
       metric_key)
+  output_metrics[metric_key].bounded_value.methodology = (
+      metrics_pb2.BoundedValue.RIEMANN_SUM)
 
 
 class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
@@ -1018,8 +1020,8 @@ class _Auc(_PostExportMetric):
   def populate_stats_and_pop(
       self, combine_metrics,
       output_metrics):
-    _populate_to_bounded_value_and_pop(combine_metrics, output_metrics,
-                                       self._metric_key(self._metric_name))
+    _populate_to_auc_bounded_value_and_pop(combine_metrics, output_metrics,
+                                           self._metric_key(self._metric_name))
 
 
 @_export('precision_recall_at_k')

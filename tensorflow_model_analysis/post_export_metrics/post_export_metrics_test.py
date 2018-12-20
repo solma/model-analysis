@@ -701,7 +701,10 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
             """threshold: 1.0
             false_negatives: 3.0
             true_negatives: 2.0
-            precision: nan""",
+            false_positives: 0.0
+            true_positives: 0.0
+            precision: nan
+            recall: 0.0 """,
             plot_data.confusion_matrix_at_thresholds.matrices[10001])
       except AssertionError as err:
         raise util.BeamAssertException(err)
@@ -1141,6 +1144,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
               value {
                 value: 0.7407472
               }
+              methodology: RIEMANN_SUM
             }
             """, output_metrics[metric_keys.AUPRC])
       except AssertionError as err:

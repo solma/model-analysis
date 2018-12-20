@@ -205,6 +205,7 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
               value {
                 value: 0.2
               }
+              methodology: RIEMANN_SUM
             }
           }
         }
@@ -221,6 +222,7 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
               value {
                 value: 0.1
               }
+              methodology: RIEMANN_SUM
             }
           }
         }""").substitute(auc=metric_keys.AUC, auprc=metric_keys.AUPRC),
