@@ -19,6 +19,7 @@ from tensorflow_model_analysis import view
 from tensorflow_model_analysis import evaluators
 from tensorflow_model_analysis import extractors
 from tensorflow_model_analysis import slicer
+from tensorflow_model_analysis import validators
 from tensorflow_model_analysis import writers
 from tensorflow_model_analysis.api import tfma_unit as test
 
