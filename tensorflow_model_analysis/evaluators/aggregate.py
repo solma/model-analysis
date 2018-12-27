@@ -86,7 +86,6 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
               eval_shared_model=eval_shared_model,
               desired_batch_size=desired_batch_size,
               compute_with_sampling=compute_with_sampling))
-      # Explicitly specify a fanout to alleviate memory issues.
       .with_hot_key_fanout(fanout=16)
       | 'InterpretOutput' >> beam.ParDo(
           _ExtractOutputDoFn(eval_shared_model=eval_shared_model)).with_outputs(
@@ -186,11 +185,12 @@ class _AggregateCombineFn(beam.CombineFn):
   "intro metrics" and merge step before producing the final output value.
 
   See also:
-  BEAM-3737: Key-aware batching function.
+  BEAM-3737: Key-aware batching function
+  (https://issues.apache.org/jira/browse/BEAM-3737).
   """
 
   # This needs to be large enough to allow for efficient TF invocations during
-  # batch flushing, but shouldn't be too large as it could lead to large amout
+  # batch flushing, but shouldn't be too large as it could lead to large amount
   # of data being shuffled for non-flushed batches. Its value might be
   # increasable in the future though, after BEAM-4030 is resolved and
   # CombineFn.compact is appropriately implemented herein and the various
@@ -297,7 +297,7 @@ class _AggregateCombineFn(beam.CombineFn):
     return accumulator
 
   def merge_accumulators(self, accumulators):
-    result = _AggState()
+    result = self.create_accumulator()
     for acc in accumulators:
       result += acc
       # Compact within the loop to avoid accumulating too much data.
