@@ -46,7 +46,7 @@ MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'
 # Tag for the last extractor in list of extractors.
 LAST_EXTRACTOR = '<last-extractor>'
 
-# Keys for Evaluation dictionary
+# Keys for Evaluation/Validation dictionaries
 
 # Metrics output key.
 METRICS_KEY = 'metrics'
@@ -54,3 +54,7 @@ METRICS_KEY = 'metrics'
 PLOTS_KEY = 'plots'
 # Analysis output key.
 ANALYSIS_KEY = 'analysis'
+
+# Keys for validation alternatives
+BASELINE_KEY = 'baseline'
+CANDIDATE_KEY = 'candidate'

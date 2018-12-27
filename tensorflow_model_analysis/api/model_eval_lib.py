@@ -39,8 +39,9 @@ from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.slicer import slicer
+from tensorflow_model_analysis.validators import validator
 from tensorflow_model_analysis.writers import writer
-from tensorflow_model_analysis.types_compat import Any, Dict, List, NamedTuple, Optional, Text, Tuple
+from tensorflow_model_analysis.types_compat import Any, Dict, List, NamedTuple, Optional, Text, Tuple, Union
 
 from google.protobuf import json_format
 
@@ -394,27 +395,29 @@ def ExtractAndEvaluate(  # pylint: disable=invalid-name
 
 
 @beam.ptransform_fn
-@beam.typehints.with_input_types(evaluator.Evaluation)
+@beam.typehints.with_input_types(
+    Union[evaluator.Evaluation, validator.Validation])
 @beam.typehints.with_output_types(beam.pvalue.PDone)
 def WriteResults(  # pylint: disable=invalid-name
-    evaluation, writers):
-  """Writes Evaluation results using given writers.
+    evaluation_or_validation,
+    writers):
+  """Writes Evaluation or Validation results using given writers.
 
   Args:
-    evaluation: Evaluation output.
-    writers: Writes to use for writing out Evaluation output.
+    evaluation_or_validation: Evaluation or Validation output.
+    writers: Writes to use for writing out output.
 
   Raises:
-    ValueError: If Evaluation is empty.
+    ValueError: If Evaluation or Validation is empty.
 
   Returns:
     beam.pvalue.PDone.
   """
-  if not evaluation:
-    raise ValueError('Evaluation cannot be empty')
+  if not evaluation_or_validation:
+    raise ValueError('Evaluations and Validations cannot be empty')
   for w in writers:
-    _ = evaluation | w.stage_name >> w.ptransform
-  return beam.pvalue.PDone(list(evaluation.values())[0].pipeline)
+    _ = evaluation_or_validation | w.stage_name >> w.ptransform
+  return beam.pvalue.PDone(list(evaluation_or_validation.values())[0].pipeline)
 
 
 @beam.ptransform_fn

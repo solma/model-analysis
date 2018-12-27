@@ -20,15 +20,16 @@ from __future__ import print_function
 
 import apache_beam as beam
 from tensorflow_model_analysis.evaluators import evaluator
-from tensorflow_model_analysis.types_compat import NamedTuple, Text
+from tensorflow_model_analysis.validators import validator
+from tensorflow_model_analysis.types_compat import NamedTuple, Text, Union
 
-# A writer is a PTransform that takes Evaluation output as input and
-# serializes the associated PCollections of data to a sink.
+# A writer is a PTransform that takes Evaluation or Validation output as input
+# and serializes the associated PCollections of data to a sink.
 Writer = NamedTuple(
     'Writer',
     [
         ('stage_name', Text),
-        # PTransform Evaluation -> PDone
+        # PTransform Evaluation -> PDone or Validation -> PDone
         ('ptransform', beam.PTransform)
     ])
 
@@ -36,25 +37,26 @@ Writer = NamedTuple(
 @beam.ptransform_fn
 @beam.typehints.with_input_types(evaluator.Evaluation)
 @beam.typehints.with_output_types(beam.pvalue.PDone)
-def Write(evaluation, key,
-          ptransform):
-  """Writes given Evaluation data using given writer PTransform.
+def Write(
+    evaluation_or_validation,
+    key, ptransform):
+  """Writes given Evaluation or Validation data using given writer PTransform.
 
   Args:
-    evaluation: Evaluation data.
-    key: Key for Evaluation output to write. It is valid for the key to not
-      exist in the Evaluation dict (in which case the write is a no-op).
+    evaluation_or_validation: Evaluation or Validation data.
+    key: Key for Evaluation or Validation output to write. It is valid for the
+      key to not exist in the dict (in which case the write is a no-op).
     ptransform: PTransform to use for writing.
 
   Raises:
-    ValueError: If Evaluation is empty. The key does not need to exist in the
-      Evaluation, but the Evaluation must not be empty.
+    ValueError: If Evaluation or Validation is empty. The key does not need to
+      exist in the Evaluation or Validation, but the dict must not be empty.
 
   Returns:
     beam.pvalue.PDone.
   """
-  if not evaluation:
-    raise ValueError('Evaluation cannot be empty')
-  if key in evaluation:
-    return evaluation[key] | ptransform
-  return beam.pvalue.PDone(list(evaluation.values())[0].pipeline)
+  if not evaluation_or_validation:
+    raise ValueError('Evaluations and Validations cannot be empty')
+  if key in evaluation_or_validation:
+    return evaluation_or_validation[key] | ptransform
+  return beam.pvalue.PDone(list(evaluation_or_validation.values())[0].pipeline)

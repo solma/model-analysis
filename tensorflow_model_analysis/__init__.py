@@ -39,7 +39,10 @@ from tensorflow_model_analysis.api.model_eval_lib import multiple_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import run_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import WriteResults
 
+
 from tensorflow_model_analysis.constants import ANALYSIS_KEY
+from tensorflow_model_analysis.constants import BASELINE_KEY
+from tensorflow_model_analysis.constants import CANDIDATE_KEY
 from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
 from tensorflow_model_analysis.constants import FEATURES_PREDICTIONS_LABELS_KEY
 from tensorflow_model_analysis.constants import INPUT_KEY
