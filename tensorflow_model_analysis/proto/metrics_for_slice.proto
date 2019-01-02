@@ -88,6 +88,14 @@ message ConfusionMatrixAtThresholds {
   repeated ConfusionMatrixAtThreshold matrices = 1;
 }
 
+// DEPRECATED, do not use. If you you have a use case that requires this
+// metric type, let tf-model-analysis-dev@ know about it.
+message RatioValue {
+  google.protobuf.DoubleValue numerator = 1;
+  google.protobuf.DoubleValue denominator = 2;
+  BoundedValue ratio = 3;
+}
+
 // For metrics which return an array of values.
 message ArrayValue {
   enum DataType {
@@ -122,9 +130,9 @@ message MetricValue {
     UnknownType unknown_type = 3;
     bytes bytes_value = 6;
     ArrayValue array_value = 7;
-  }
 
-  reserved 8;
+    RatioValue ratio_value = 8 [deprecated = true];
+  }
 }
 
 // A single slice key.
