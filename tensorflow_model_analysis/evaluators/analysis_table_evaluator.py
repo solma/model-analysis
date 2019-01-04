@@ -24,12 +24,14 @@ import apache_beam as beam
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.evaluators import evaluator
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.types_compat import Text
 
 
 def AnalysisTableEvaluator(  # pylint: disable=invalid-name
     key = constants.ANALYSIS_KEY,
-    run_after = constants.LAST_EXTRACTOR):
+    run_after = extractor.LAST_EXTRACTOR_STAGE_NAME
+):
   """Creates an Evaluator for returning Extracts data for analysis.
 
   Args:

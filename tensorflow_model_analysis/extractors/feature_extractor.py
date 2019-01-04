@@ -33,14 +33,16 @@ from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Te
 # For now, we store only the first N sparse keys in our diagnostics table.
 _MAX_SPARSE_FEATURES_PER_COLUMN = 10
 
+FEATURE_EXTRACTOR_STAGE_NAME = 'ExtractFeatures'
+
 
 def FeatureExtractor(
     excludes = None,
     extract_source = constants.FEATURES_PREDICTIONS_LABELS_KEY):
   # pylint: disable=no-value-for-parameter
   return extractor.Extractor(
-      stage_name='ExtractFeatures',
-      ptransform=ExtractFeatures(excludes=excludes, source=extract_source))
+      stage_name=FEATURE_EXTRACTOR_STAGE_NAME,
+      ptransform=_ExtractFeatures(excludes=excludes, source=extract_source))
   # pylint: enable=no-value-for-parameter
 
 
@@ -155,7 +157,7 @@ def _MaterializeFeatures(
 @beam.ptransform_fn
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.Any)
-def ExtractFeatures(
+def _ExtractFeatures(
     extracts,
     excludes = None,
     source = constants.FEATURES_PREDICTIONS_LABELS_KEY

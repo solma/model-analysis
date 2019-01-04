@@ -30,6 +30,8 @@ from tensorflow_model_analysis.slicer import slicer
 
 from tensorflow_model_analysis.types_compat import List, Optional
 
+SLICE_KEY_EXTRACTOR_STAGE_NAME = 'ExtractSliceKeys'
+
 
 def SliceKeyExtractor(
     slice_spec = None,
@@ -55,13 +57,13 @@ def SliceKeyExtractor(
   if slice_spec is None:
     slice_spec = [slicer.SingleSliceSpec()]
   return extractor.Extractor(
-      stage_name='ExtractSliceKeys',
-      ptransform=ExtractSliceKeys(slice_spec, materialize))
+      stage_name=SLICE_KEY_EXTRACTOR_STAGE_NAME,
+      ptransform=_ExtractSliceKeys(slice_spec, materialize))
 
 
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.Any)
-class _ExtractSliceKeys(beam.DoFn):
+class _ExtractSliceKeysFn(beam.DoFn):
   """A DoFn that extracts slice keys that apply per example."""
 
   def __init__(self, slice_spec,
@@ -99,7 +101,7 @@ class _ExtractSliceKeys(beam.DoFn):
 @beam.ptransform_fn
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.Any)
-def ExtractSliceKeys(extracts,
-                     slice_spec,
-                     materialize = True):
-  return extracts | beam.ParDo(_ExtractSliceKeys(slice_spec, materialize))
+def _ExtractSliceKeys(extracts,
+                      slice_spec,
+                      materialize = True):
+  return extracts | beam.ParDo(_ExtractSliceKeysFn(slice_spec, materialize))

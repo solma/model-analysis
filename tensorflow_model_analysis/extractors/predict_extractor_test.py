@@ -63,7 +63,7 @@ class PredictExtractorTest(testutil.TensorflowModelAnalysisTest):
           # Our diagnostic outputs, pass types.Extracts throughout, however our
           # aggregating functions do not use this interface.
           | beam.Map(lambda x: {constants.INPUT_KEY: x})
-          | 'Predict' >> predict_extractor.TFMAPredict(
+          | 'Predict' >> predict_extractor._TFMAPredict(
               eval_shared_model=eval_shared_model, desired_batch_size=3))
 
       def check_result(got):
@@ -120,7 +120,7 @@ class PredictExtractorTest(testutil.TensorflowModelAnalysisTest):
           # Our diagnostic outputs, pass types.Extracts throughout, however our
           # aggregating functions do not use this interface.
           | beam.Map(lambda x: {constants.INPUT_KEY: x})
-          | 'Predict' >> predict_extractor.TFMAPredict(
+          | 'Predict' >> predict_extractor._TFMAPredict(
               eval_shared_model=eval_shared_model, desired_batch_size=3))
 
       util.assert_that(predict_extracts, check_result)

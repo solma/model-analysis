@@ -332,7 +332,7 @@ class SlicerTest(testutil.TensorflowModelAnalysisTest):
           pipeline
           | 'CreateTestInput' >> beam.Create(fpls)
           | 'WrapFpls' >> beam.Map(wrap_fpl)
-          | 'ExtractSlices' >> slice_key_extractor.ExtractSliceKeys(
+          | 'ExtractSlices' >> slice_key_extractor._ExtractSliceKeys(
               [slicer.SingleSliceSpec()])
           | 'FanoutSlices' >> slicer.FanoutSlices())
 
@@ -359,7 +359,7 @@ class SlicerTest(testutil.TensorflowModelAnalysisTest):
           pipeline
           | 'CreateTestInput' >> beam.Create(fpls)
           | 'WrapFpls' >> beam.Map(wrap_fpl)
-          | 'ExtractSlices' >> slice_key_extractor.ExtractSliceKeys([
+          | 'ExtractSlices' >> slice_key_extractor._ExtractSliceKeys([
               slicer.SingleSliceSpec(),
               slicer.SingleSliceSpec(columns=['gender'])
           ])

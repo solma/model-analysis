@@ -389,7 +389,7 @@ def ExtractAndEvaluate(  # pylint: disable=invalid-name
       if v.run_after == x.stage_name:
         evaluation.update(extracts | v.stage_name >> v.ptransform)
   for v in evaluators:
-    if v.run_after == constants.LAST_EXTRACTOR:
+    if v.run_after == extractor.LAST_EXTRACTOR_STAGE_NAME:
       evaluation.update(extracts | v.stage_name >> v.ptransform)
   return evaluation
 

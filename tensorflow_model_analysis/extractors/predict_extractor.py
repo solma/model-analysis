@@ -30,7 +30,7 @@ from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import feature_extractor
 from tensorflow_model_analysis.types_compat import Generator, List, Optional
 
-_METRICS_NAMESPACE = 'tensorflow_model_analysis'
+PREDICT_EXTRACTOR_STAGE_NAME = 'Predict'
 
 
 def PredictExtractor(eval_shared_model,
@@ -53,8 +53,8 @@ def PredictExtractor(eval_shared_model,
   """
   # pylint: disable=no-value-for-parameter
   return extractor.Extractor(
-      stage_name='Predict',
-      ptransform=TFMAPredict(
+      stage_name=PREDICT_EXTRACTOR_STAGE_NAME,
+      ptransform=_TFMAPredict(
           eval_shared_model=eval_shared_model,
           desired_batch_size=desired_batch_size,
           materialize=materialize))
@@ -69,9 +69,9 @@ class _TFMAPredictionDoFn(dofn.EvalSavedModelDoFn):
   def __init__(self, eval_shared_model):
     super(_TFMAPredictionDoFn, self).__init__(eval_shared_model)
     self._predict_batch_size = beam.metrics.Metrics.distribution(
-        _METRICS_NAMESPACE, 'predict_batch_size')
-    self._num_instances = beam.metrics.Metrics.counter(_METRICS_NAMESPACE,
-                                                       'num_instances')
+        constants.METRICS_NAMESPACE, 'predict_batch_size')
+    self._num_instances = beam.metrics.Metrics.counter(
+        constants.METRICS_NAMESPACE, 'num_instances')
 
   def process(self, element
              ):
@@ -90,7 +90,7 @@ class _TFMAPredictionDoFn(dofn.EvalSavedModelDoFn):
 @beam.ptransform_fn
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.Any)
-def TFMAPredict(  # pylint: disable=invalid-name
+def _TFMAPredict(  # pylint: disable=invalid-name
     extracts,
     eval_shared_model,
     desired_batch_size = None,
@@ -126,6 +126,6 @@ def TFMAPredict(  # pylint: disable=invalid-name
           _TFMAPredictionDoFn(eval_shared_model=eval_shared_model)))
 
   if materialize:
-    return extracts | 'ExtractFeatures' >> feature_extractor.ExtractFeatures()
+    return extracts | 'ExtractFeatures' >> feature_extractor._ExtractFeatures()  # pylint: disable=protected-access
 
   return extracts

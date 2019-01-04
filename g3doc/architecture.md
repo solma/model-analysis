@@ -246,7 +246,7 @@ Extracts {
 }
 ```
 
-* `tfma.evaluators.MetricsAndPlotsEvaluator` (run_after: `tfma.LAST_EXTRACTOR`)
+* `tfma.evaluators.MetricsAndPlotsEvaluator` (run_after: `SLICE_KEY_EXTRACTOR_STAGE_NAME`)
 
 ```python
 # In: SliceKeyExtractor Extracts
@@ -257,7 +257,7 @@ Evaluation {
 }
 ```
 
-* `tfma.evaluators.AnalysisTableEvaluator` (run_after: `tfma.LAST_EXTRACTOR`)
+* `tfma.evaluators.AnalysisTableEvaluator` (run_after: `LAST_EXTRACTOR_STAGE_NAME`)
 
 ```python
 # In: SliceKeyExtractor Extracts

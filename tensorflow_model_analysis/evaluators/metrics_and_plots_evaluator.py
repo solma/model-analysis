@@ -28,6 +28,7 @@ from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.evaluators import aggregate
 from tensorflow_model_analysis.evaluators import evaluator
+from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Text, Tuple
@@ -38,7 +39,8 @@ def MetricsAndPlotsEvaluator(  # pylint: disable=invalid-name
     desired_batch_size = None,
     metrics_key = constants.METRICS_KEY,
     plots_key = constants.PLOTS_KEY,
-    run_after = constants.LAST_EXTRACTOR):
+    run_after = slice_key_extractor.SLICE_KEY_EXTRACTOR_STAGE_NAME
+):
   """Creates an Evaluator for evaluating metrics and plots.
 
   Args:

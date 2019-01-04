@@ -19,7 +19,6 @@ from __future__ import division
 from __future__ import print_function
 
 import apache_beam as beam
-from tensorflow_model_analysis import constants
 from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.types_compat import Dict, List, NamedTuple, Text
 
@@ -33,8 +32,8 @@ Evaluator = NamedTuple(  # pylint: disable=invalid-name
     [
         ('stage_name', Text),
         # Extractor.stage_name. If None then evaluation is run before any
-        # extractors are run. If constants.LAST_EXTRACTOR then evaluation is run
-        # after the last extractor has run.
+        # extractors are run. If LAST_EXTRACTOR_STAGE_NAME then evaluation is
+        # run after the last extractor has run.
         ('run_after', Text),
         # PTransform Extracts -> Evaluation
         ('ptransform', beam.PTransform)
@@ -59,7 +58,7 @@ def verify_evaluator(evaluator,
     ValueError: If an Extractor cannot be found for the Evaluator.
   """
   if (evaluator.run_after and
-      evaluator.run_after != constants.LAST_EXTRACTOR and
+      evaluator.run_after != extractor.LAST_EXTRACTOR_STAGE_NAME and
       not any(evaluator.run_after == x.stage_name for x in extractors)):
     raise ValueError(
         'Extractor matching run_after=%s for Evaluator %s not found' %

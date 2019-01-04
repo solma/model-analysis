@@ -21,6 +21,9 @@ from __future__ import print_function
 import apache_beam as beam
 from tensorflow_model_analysis.types_compat import NamedTuple, Text
 
+# Tag for the last extractor in list of extractors.
+LAST_EXTRACTOR_STAGE_NAME = '<last-extractor>'
+
 # An Extractor is a PTransform that takes Extracts as input and returns Extracts
 # as output. A typical example is a PredictExtractor that receives an 'input'
 # placeholder for input and adds additional 'features', 'labels', and
