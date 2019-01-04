@@ -35,6 +35,26 @@ _MAX_SPARSE_FEATURES_PER_COLUMN = 10
 
 FEATURE_EXTRACTOR_STAGE_NAME = 'ExtractFeatures'
 
+# Separator for the different segments that make up a column name. Normally we
+# would like to use '.' or '/' as a separator, but the output gets written to a
+# table backed by a proto based schema which limits the characters that can be
+# used to [a-zA-Z_].
+_NAME_SEPARATOR = '__'
+
+
+def _create_col_name(  # pylint: disable=invalid-name
+    segments, separator = _NAME_SEPARATOR):
+  """Returns a column name based on a list of segments.
+
+  Args:
+    segments: Segments used to make up column name.
+    separator: Separator between segments. To ensure the segments can be parsed
+      out of any column name created, any use of a separator within a segment
+      will be replaced by two separators.
+  """
+  return separator.join(
+      [segment.replace(separator, separator*2) for segment in segments])
+
 
 def FeatureExtractor(
     excludes = None,
@@ -46,12 +66,15 @@ def FeatureExtractor(
   # pylint: enable=no-value-for-parameter
 
 
-def _AugmentExtracts(fpl_dict, excludes,
+def _AugmentExtracts(fpl_dict,
+                     prefix,
+                     excludes,
                      extracts):
   """Augments the Extracts with FeaturesPredictionsLabels.
 
   Args:
     fpl_dict: The dictionary returned by PredictExtractor.
+    prefix: Prefix to use in column naming (e.g. 'features', 'labels', etc).
     excludes: List of strings containing features, predictions, or labels to
       exclude from materialization.
     extracts: The Extracts to be augmented. This is mutated in-place.
@@ -64,15 +87,20 @@ def _AugmentExtracts(fpl_dict, excludes,
       continue
     val = val.get(encoding.NODE_SUFFIX)
 
+    if name in (prefix, _NAME_SEPARATOR + prefix):
+      col_name = prefix
+    else:
+      col_name = _create_col_name([prefix, name])
+
     if isinstance(val, tf.SparseTensorValue):
       extracts[name] = types.MaterializedColumn(
-          name=name, value=val.values[0:_MAX_SPARSE_FEATURES_PER_COLUMN])
+          name=col_name, value=val.values[0:_MAX_SPARSE_FEATURES_PER_COLUMN])
 
     elif isinstance(val, np.ndarray):
       val = val[0]  # only support first dim for now.
       if not np.isscalar(val):
         val = val[0:_MAX_SPARSE_FEATURES_PER_COLUMN]
-      extracts[name] = types.MaterializedColumn(name=name, value=val)
+      extracts[name] = types.MaterializedColumn(name=col_name, value=val)
 
     else:
       raise TypeError(
@@ -94,7 +122,8 @@ def _ParseExample(extracts):
       values = [v for v in value.float_list.value]
     elif value.HasField('int64_list'):
       values = [v for v in value.int64_list.value]
-    extracts[name] = types.MaterializedColumn(name=name, value=values)
+    extracts[name] = types.MaterializedColumn(
+        name=_create_col_name(['features', name]), value=values)
 
 
 def _MaterializeFeatures(
@@ -137,9 +166,9 @@ def _MaterializeFeatures(
     # We disable pytyping here because we know that 'fpl' key corresponds to a
     # non-materialized column.
     # pytype: disable=attribute-error
-    _AugmentExtracts(fpl.features, excludes, result)
-    _AugmentExtracts(fpl.predictions, excludes, result)
-    _AugmentExtracts(fpl.labels, excludes, result)
+    _AugmentExtracts(fpl.features, 'features', excludes, result)
+    _AugmentExtracts(fpl.predictions, 'predictions', excludes, result)
+    _AugmentExtracts(fpl.labels, 'labels', excludes, result)
     # pytype: enable=attribute-error
     return result
   elif source == constants.INPUT_KEY:

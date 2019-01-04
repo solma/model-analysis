@@ -92,12 +92,15 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     self.assertTrue(isinstance(result, dict))
     self.assertEqual(result[constants.FEATURES_PREDICTIONS_LABELS_KEY],
                      fpl)  # should still be there.
-    self.assertEqual(result['f'], types.MaterializedColumn(name='f', value=[1]))
-    self.assertEqual(result['p'], types.MaterializedColumn(name='p', value=[2]))
-    self.assertEqual(result['l'], types.MaterializedColumn(name='l', value=[3]))
+    self.assertEqual(result['f'],
+                     types.MaterializedColumn(name='features__f', value=[1]))
+    self.assertEqual(result['p'],
+                     types.MaterializedColumn(name='predictions__p', value=[2]))
+    self.assertEqual(result['l'],
+                     types.MaterializedColumn(name='labels__l', value=[3]))
     self.assertEqual(
         result['s'], types.MaterializedColumn(
-            name='s', value=[100., 200., 300.]))
+            name='features__s', value=[100., 200., 300.]))
 
   def testMaterializeFeaturesFromTfExample(self):
     example1 = self._makeExample(age=3.0, language='english', label=1.0)
@@ -109,13 +112,15 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     self.assertTrue(isinstance(result, dict))
     self.assertEqual(result[constants.INPUT_KEY],
                      input_example)  # should still be there.
-    self.assertEqual(result['age'],
-                     types.MaterializedColumn(name='age', value=[3.0]))
+    self.assertEqual(
+        result['age'],
+        types.MaterializedColumn(name='features__age', value=[3.0]))
     self.assertEqual(
         result['language'],
-        types.MaterializedColumn(name='language', value=[b'english']))
-    self.assertEqual(result['label'],
-                     types.MaterializedColumn(name='label', value=[1.0]))
+        types.MaterializedColumn(name='features__language', value=[b'english']))
+    self.assertEqual(
+        result['label'],
+        types.MaterializedColumn(name='features__label', value=[1.0]))
 
   def testMaterializeFeaturesWithBadSource(self):
     example1 = self._makeExample(age=3.0, language='english', label=1.0)
