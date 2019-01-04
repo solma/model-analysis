@@ -22,6 +22,7 @@ import os
 import apache_beam as beam
 from apache_beam.testing import util
 import tensorflow as tf
+from tensorflow_model_analysis import constants
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import testutil
 from tensorflow_model_analysis.eval_saved_model.example_trainers import linear_classifier
@@ -32,7 +33,9 @@ def create_test_input(predict_list, slice_list):
   results = []
   for entry in predict_list:
     for slice_key in slice_list:
-      results.append((slice_key, entry))
+      results.append((slice_key, {
+          constants.FEATURES_PREDICTIONS_LABELS_KEY: entry
+      }))
   return results
 
 

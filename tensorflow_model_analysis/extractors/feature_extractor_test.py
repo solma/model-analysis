@@ -100,38 +100,27 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
             name='s', value=[100., 200., 300.]))
 
   def testMaterializeFeaturesFromTfExample(self):
-    example1 = self._makeExample(
-        age=3.0, language='english', label=1.0)
+    example1 = self._makeExample(age=3.0, language='english', label=1.0)
 
-    extracts = {
-        constants.INPUT_KEY:
-            example1.SerializeToString()
-    }
+    extracts = {constants.INPUT_KEY: example1.SerializeToString()}
     input_example = extracts[constants.INPUT_KEY]
     result = feature_extractor._MaterializeFeatures(
-        extracts,
-        source=constants.INPUT_KEY)
+        extracts, source=constants.INPUT_KEY)
     self.assertTrue(isinstance(result, dict))
     self.assertEqual(result[constants.INPUT_KEY],
                      input_example)  # should still be there.
-    self.assertEqual(
-        result['age'],
-        types.MaterializedColumn(name='age', value=[3.0]))
+    self.assertEqual(result['age'],
+                     types.MaterializedColumn(name='age', value=[3.0]))
     self.assertEqual(
         result['language'],
         types.MaterializedColumn(name='language', value=[b'english']))
-    self.assertEqual(
-        result['label'],
-        types.MaterializedColumn(name='label', value=[1.0]))
+    self.assertEqual(result['label'],
+                     types.MaterializedColumn(name='label', value=[1.0]))
 
   def testMaterializeFeaturesWithBadSource(self):
-    example1 = self._makeExample(
-        age=3.0, language='english', label=1.0)
+    example1 = self._makeExample(age=3.0, language='english', label=1.0)
 
-    extracts = {
-        constants.INPUT_KEY:
-            example1.SerializeToString()
-    }
+    extracts = {constants.INPUT_KEY: example1.SerializeToString()}
 
     self.assertRaises(RuntimeError, feature_extractor._MaterializeFeatures,
                       extracts, None, '10')
@@ -165,8 +154,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
                 predictions=predictions,
                 labels=labels)
     }
-    result = feature_extractor._MaterializeFeatures(extracts,
-                                                    excludes=['s'])
+    result = feature_extractor._MaterializeFeatures(extracts, excludes=['s'])
     self.assertFalse('s' in result)
 
 

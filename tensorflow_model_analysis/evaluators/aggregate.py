@@ -36,13 +36,14 @@ from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterabl
 # in Beam type annotations is not complete.
 _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
     beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
+_BeamExtractsType = beam.typehints.Dict[Text, beam.typehints.Any]  # pylint: disable=invalid-name
 
 SAMPLE_ID = '__sample_id'
 
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.Any])
+    beam.typehints.Tuple[_BeamSliceKeyType, _BeamExtractsType])
 @beam.typehints.with_output_types(
     beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.List[beam.typehints
                                                                 .Any]])
@@ -55,7 +56,7 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
   """PTransform for computing, aggregating and combining metrics.
 
   Args:
-    slice_result: Incoming PCollection consisting of slice key and example.
+    slice_result: Incoming PCollection consisting of slice key and extracts.
     eval_shared_model: Shared model parameters for EvalSavedModel.
     desired_batch_size: Optional batch size for batching in Aggregate.
     num_bootstrap_samples: Number of replicas to use in calculating uncertainty
@@ -292,7 +293,7 @@ class _AggregateCombineFn(beam.CombineFn):
 
   def add_input(self, accumulator,
                 elem):
-    accumulator.add_fpl(elem)
+    accumulator.add_fpl(elem[constants.FEATURES_PREDICTIONS_LABELS_KEY])
     self._maybe_do_batch(accumulator)
     return accumulator
 

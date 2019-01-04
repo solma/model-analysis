@@ -28,6 +28,7 @@ from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
 from tensorflow_model_analysis.evaluators import aggregate
 from tensorflow_model_analysis.evaluators import evaluator
+from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.extractors import slice_key_extractor
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 from tensorflow_model_analysis.slicer import slicer
@@ -322,6 +323,9 @@ def EvaluateMetricsAndPlots(  # pylint: disable=invalid-name
   # pylint: disable=no-value-for-parameter
   metrics, plots = (
       extracts
+      | 'Filter' >> extractor.Filter(include=[
+          constants.FEATURES_PREDICTIONS_LABELS_KEY, constants.SLICE_KEYS_KEY
+      ])
       | 'ComputeMetricsAndPlots' >> ComputeMetricsAndPlots(
           eval_shared_model, desired_batch_size))
   metrics, plots = (

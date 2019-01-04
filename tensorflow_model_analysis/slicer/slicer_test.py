@@ -340,8 +340,8 @@ class SlicerTest(testutil.TensorflowModelAnalysisTest):
         try:
           self.assertEqual(2, len(got), 'got: %s' % got)
           expected_result = [
-              ((), fpls[0]),
-              ((), fpls[1]),
+              ((), wrap_fpl(fpls[0])),
+              ((), wrap_fpl(fpls[1])),
           ]
           self.assertEqual(len(got), len(expected_result))
           self.assertTrue(
@@ -369,10 +369,10 @@ class SlicerTest(testutil.TensorflowModelAnalysisTest):
         try:
           self.assertEqual(4, len(got), 'got: %s' % got)
           expected_result = [
-              ((), fpls[0]),
-              ((), fpls[1]),
-              ((('gender', 'f'),), fpls[0]),
-              ((('gender', 'm'),), fpls[1]),
+              ((), wrap_fpl(fpls[0])),
+              ((), wrap_fpl(fpls[1])),
+              ((('gender', 'f'),), wrap_fpl(fpls[0])),
+              ((('gender', 'm'),), wrap_fpl(fpls[1])),
           ]
           self.assertEqual(
               sorted(got, key=lambda x: x[0]),

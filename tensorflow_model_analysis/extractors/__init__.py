@@ -15,6 +15,7 @@
 
 from tensorflow_model_analysis.extractors import meta_feature_extractor
 from tensorflow_model_analysis.extractors.extractor import Extractor
+from tensorflow_model_analysis.extractors.extractor import Filter
 from tensorflow_model_analysis.extractors.extractor import LAST_EXTRACTOR_STAGE_NAME
 from tensorflow_model_analysis.extractors.feature_extractor import FEATURE_EXTRACTOR_STAGE_NAME
 from tensorflow_model_analysis.extractors.feature_extractor import FeatureExtractor

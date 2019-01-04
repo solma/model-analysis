@@ -46,8 +46,7 @@ def FeatureExtractor(
   # pylint: enable=no-value-for-parameter
 
 
-def _AugmentExtracts(fpl_dict,
-                     excludes,
+def _AugmentExtracts(fpl_dict, excludes,
                      extracts):
   """Augments the Extracts with FeaturesPredictionsLabels.
 
@@ -178,6 +177,5 @@ def _ExtractFeatures(
   Returns:
     PCollection of Extracts
   """
-  return extracts | 'MaterializeFeatures' >> beam.Map(_MaterializeFeatures,
-                                                      excludes=excludes,
-                                                      source=source)
+  return extracts | 'MaterializeFeatures' >> beam.Map(
+      _MaterializeFeatures, excludes=excludes, source=source)
