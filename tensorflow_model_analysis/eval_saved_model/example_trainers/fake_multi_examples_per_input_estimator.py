@@ -249,7 +249,7 @@ def bad_multi_examples_per_input_estimator_out_of_range_input_refs(
   return util.export_model_and_eval_model(
       estimator=estimator,
       serving_input_receiver_fn=_serving_input_receiver_fn,
-      eval_input_receiver_fn=
-      _bad_eval_input_receiver_fn_out_of_range_input_refs,
+      eval_input_receiver_fn=(
+          _bad_eval_input_receiver_fn_out_of_range_input_refs),
       export_path=export_path,
       eval_export_path=eval_export_path)

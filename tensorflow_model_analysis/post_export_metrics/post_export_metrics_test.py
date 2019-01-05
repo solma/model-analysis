@@ -244,8 +244,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = (
         fixed_prediction_classifier_identity_label
-        .simple_fixed_prediction_classifier(
-            None, temp_eval_export_dir))
+        .simple_fixed_prediction_classifier(None, temp_eval_export_dir))
     examples = [
         self._makeExample(
             age=3.0,
@@ -1388,6 +1387,7 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
     self.assertProtoEquals(expected_plot_data, plot_data)
     self.assertFalse(metric_keys.AUC_PLOTS_MATRICES in tfma_plots)
     self.assertFalse(metric_keys.AUC_PLOTS_THRESHOLDS in tfma_plots)
+
 
 if __name__ == '__main__':
   tf.test.main()

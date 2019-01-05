@@ -300,12 +300,14 @@ def _sparse_concat_rows(
   # values, except the number of rows should be the batch size.
   dense_shape_max[0] = len(sparse_tensor_values)
 
+  # pylint: disable=g-long-ternary
   return tf.SparseTensorValue(
       indices=(np.array(indices, dtype=empty_indices_with_shape.dtype)
                if indices else empty_indices_with_shape),
       values=(np.array(values, dtype=empty_values_with_shape.dtype)
               if values else empty_values_with_shape),
       dense_shape=dense_shape_max)
+  # pylint: enable=g-long-ternary
 
 
 def _sparse_slice_rows(
@@ -381,6 +383,7 @@ def _sparse_slice_rows(
     else:
       dense_shape[1:] = [0] * (len(original_dense_shape) - 1)
 
+    # pylint: disable=g-long-ternary
     result.append(
         tf.SparseTensorValue(
             indices=(np.array(indices, dtype=empty_indices_with_shape.dtype)
@@ -388,6 +391,7 @@ def _sparse_slice_rows(
             values=(np.array(values, dtype=empty_values_with_shape.dtype)
                     if values else empty_values_with_shape),
             dense_shape=np.array(dense_shape)))
+    # pylint: enable=g-long-ternary
 
   return result
 

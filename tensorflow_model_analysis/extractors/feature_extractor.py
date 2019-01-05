@@ -43,7 +43,8 @@ _NAME_SEPARATOR = '__'
 
 
 def _create_col_name(  # pylint: disable=invalid-name
-    segments, separator = _NAME_SEPARATOR):
+    segments,
+    separator = _NAME_SEPARATOR):
   """Returns a column name based on a list of segments.
 
   Args:
@@ -53,7 +54,7 @@ def _create_col_name(  # pylint: disable=invalid-name
       will be replaced by two separators.
   """
   return separator.join(
-      [segment.replace(separator, separator*2) for segment in segments])
+      [segment.replace(separator, separator * 2) for segment in segments])
 
 
 def FeatureExtractor(
@@ -66,10 +67,8 @@ def FeatureExtractor(
   # pylint: enable=no-value-for-parameter
 
 
-def _AugmentExtracts(fpl_dict,
-                     prefix,
-                     excludes,
-                     extracts):
+def _AugmentExtracts(fpl_dict, prefix,
+                     excludes, extracts):
   """Augments the Extracts with FeaturesPredictionsLabels.
 
   Args:
@@ -185,11 +184,10 @@ def _MaterializeFeatures(
 @beam.ptransform_fn
 @beam.typehints.with_input_types(beam.typehints.Any)
 @beam.typehints.with_output_types(beam.typehints.Any)
-def _ExtractFeatures(
-    extracts,
-    excludes = None,
-    source = constants.FEATURES_PREDICTIONS_LABELS_KEY
-    ):
+def _ExtractFeatures(extracts,
+                     excludes = None,
+                     source = constants.FEATURES_PREDICTIONS_LABELS_KEY
+                    ):
   """Builds MaterializedColumn extracts from FPL created in evaluate.Predict().
 
   It must be the case that the PredictExtractor was called before calling this

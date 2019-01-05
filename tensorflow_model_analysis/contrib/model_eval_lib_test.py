@@ -109,18 +109,17 @@ class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
                         name='features__language', value=[b'english']),
                 'age':
                     types.MaterializedColumn(
-                        name='features__age', value=np.array([3.],
-                                                             dtype=np.float32)),
+                        name='features__age',
+                        value=np.array([3.], dtype=np.float32)),
 
                 # Label
                 'label':
                     types.MaterializedColumn(
-                        name='labels__label', value=np.array([1.],
-                                                             dtype=np.float32)),
+                        name='labels__label',
+                        value=np.array([1.], dtype=np.float32)),
                 '__labels':
                     types.MaterializedColumn(
-                        name='labels', value=np.array([1.],
-                                                      dtype=np.float32)),
+                        name='labels', value=np.array([1.], dtype=np.float32)),
             })
         self._assertMaterializedColumnsExist(materialized_dict, [
             'logits', 'probabilities', 'classes', 'logistic', 'class_ids',

@@ -25,7 +25,7 @@ from tensorflow_model_analysis import types
 from tensorflow_model_analysis.eval_saved_model import dofn
 from tensorflow_model_analysis.eval_saved_model import load
 from tensorflow_model_analysis.eval_saved_model import util
-from tensorflow_model_analysis.types_compat import Callable, Dict, Iterable, List, Optional, Union, Sequence, Text, Tuple
+from tensorflow_model_analysis.types_compat import Dict, Iterable, List, Optional, Union, Sequence, Text, Tuple
 
 from tensorflow.core.example import example_pb2
 

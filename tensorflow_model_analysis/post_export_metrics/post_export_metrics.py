@@ -236,8 +236,8 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
         [predictions_tensor, labels_tensor])
     with tf.control_dependencies([assert_op]):
       predictions_for_class = predictions_tensor[:, self._tensor_index]
-      labels_for_class = tf.cast(
-          labels_tensor[:, self._tensor_index], tf.float32)
+      labels_for_class = tf.cast(labels_tensor[:, self._tensor_index],
+                                 tf.float32)
 
     return predictions_for_class, labels_for_class
 

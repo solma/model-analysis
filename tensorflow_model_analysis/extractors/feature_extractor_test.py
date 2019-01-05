@@ -99,8 +99,8 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     self.assertEqual(result['l'],
                      types.MaterializedColumn(name='labels__l', value=[3]))
     self.assertEqual(
-        result['s'], types.MaterializedColumn(
-            name='features__s', value=[100., 200., 300.]))
+        result['s'],
+        types.MaterializedColumn(name='features__s', value=[100., 200., 300.]))
 
   def testMaterializeFeaturesFromTfExample(self):
     example1 = self._makeExample(age=3.0, language='english', label=1.0)
