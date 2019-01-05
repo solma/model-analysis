@@ -192,10 +192,7 @@ class _AggregateCombineFn(beam.CombineFn):
 
   # This needs to be large enough to allow for efficient TF invocations during
   # batch flushing, but shouldn't be too large as it could lead to large amount
-  # of data being shuffled for non-flushed batches. Its value might be
-  # increasable in the future though, after BEAM-4030 is resolved and
-  # CombineFn.compact is appropriately implemented herein and the various
-  # Beam Runners can make use of it.
+  # of data being shuffled for non-flushed batches.
   _DEFAULT_DESIRED_BATCH_SIZE = 100
 
   def __init__(self,
@@ -204,11 +201,6 @@ class _AggregateCombineFn(beam.CombineFn):
                compute_with_sampling = False):
     self._eval_shared_model = eval_shared_model
     self._eval_metrics_graph = None  # type: eval_metrics_graph.EvalMetricsGraph
-    self._combine_batch_size = beam.metrics.Metrics.distribution(
-        constants.METRICS_NAMESPACE, 'combine_batch_size')
-    self._model_load_seconds = beam.metrics.Metrics.distribution(
-        constants.METRICS_NAMESPACE, 'model_load_seconds')
-    self._compute_with_sampling = compute_with_sampling
 
     # We really want the batch size to be adaptive like it is in
     # beam.BatchElements(), but there isn't an easy way to make it so.
@@ -216,6 +208,16 @@ class _AggregateCombineFn(beam.CombineFn):
       self._desired_batch_size = desired_batch_size
     else:
       self._desired_batch_size = self._DEFAULT_DESIRED_BATCH_SIZE
+
+    self._compute_with_sampling = compute_with_sampling
+
+    # Metrics.
+    self._combine_batch_size = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'combine_batch_size')
+    self._model_load_seconds = beam.metrics.Metrics.distribution(
+        constants.METRICS_NAMESPACE, 'model_load_seconds')
+    self._num_compacts = beam.metrics.Metrics.counter(
+        constants.METRICS_NAMESPACE, 'num_compacts')
 
   def _start_bundle(self):
     # There's no initialisation method for CombineFns.
@@ -303,7 +305,7 @@ class _AggregateCombineFn(beam.CombineFn):
       result += acc
       # Compact within the loop to avoid accumulating too much data.
       #
-      # During the "map" side of combining combining happens per bundle,
+      # During the "map" side of combining merging happens with memory limits
       # but on the "reduce" side it's across all bundles (for a given key).
       #
       # So we could potentially accumulate get num_bundles * batch_size
@@ -311,22 +313,21 @@ class _AggregateCombineFn(beam.CombineFn):
       # could cause OOM errors (b/77293756).
       self._maybe_do_batch(result)
 
-    # Ensure (via 'force=True') that all "merged" accumulators that are produced
-    # are compact and "fully" merged (ie ready for use for extract_output). Any
-    # overhead that might be induced by this due to possibly small batches is
-    # likely dwarfed by the overhead that materializing large accumulators
-    # induces.
     self._maybe_do_batch(result, force=True)
 
     return result
 
+  def compact(self, accumulator):
+    self._maybe_do_batch(accumulator, force=True)  # Guaranteed compaction.
+    self._num_compacts.inc(1)
+    return accumulator
+
   def extract_output(
       self, accumulator):
-
     # It's possible that the accumulator has not been fully flushed, if it was
-    # not produced by a call to merge_accumulators (which is not guaranteed
-    # across all Beam Runners), so we defensively flush it here again, before we
-    # extract data from it, to ensure correctness.
+    # not produced by a call to compact (which is not guaranteed across all Beam
+    # Runners), so we defensively flush it here again, before we extract data
+    # from it, to ensure correctness.
     self._maybe_do_batch(accumulator, force=True)
     return accumulator.metric_variables
 
