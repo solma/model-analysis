@@ -138,6 +138,14 @@ class UtilTest(testutil.TensorflowModelAnalysisTest):
     return model_eval_lib.EvalResults([result_a, result_b],
                                       constants.MODEL_CENTRIC_MODE)
 
+  def _makeEvalConfig(self):
+    eval_config = model_eval_lib.EvalConfig(
+        example_weight_metric_key='testing_key',
+        slice_spec=None,
+        data_location='',
+        model_location='')
+    return eval_config
+
   def testGetSlicingMetrics(self):
     self.assertEqual(
         util.get_slicing_metrics(self._makeTestData(), self.column_1), [{
@@ -291,6 +299,11 @@ class UtilTest(testutil.TensorflowModelAnalysisTest):
             }],
         }
     })
+
+  def testGetSlicingConfig(self):
+    eval_config = self._makeEvalConfig()
+    slicing_config = util.get_slicing_config(eval_config)
+    self.assertEquals(slicing_config, {'weightedExamplesColumn': 'testing_key'})
 
 
 if __name__ == '__main__':

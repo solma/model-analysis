@@ -242,3 +242,15 @@ def get_plot_data_and_config(
                                      _SUPPORTED_PLOT_KEYS)
 
   return plot_data, plot_config  # pytype: disable=bad-return-type
+
+
+def get_slicing_config(config):
+  """Util function that generates config for visualization.
+
+  Args:
+    config: EvalConfig that contains example_weight_metric_key.
+
+  Returns:
+    A dictionary containing configuration of the slicing metrics evalaution.
+  """
+  return {'weightedExamplesColumn': config.example_weight_metric_key}

@@ -42,7 +42,7 @@ def render_slicing_metrics(result,
   """
   data = util.get_slicing_metrics(result.slicing_metrics, slicing_column,
                                   slicing_spec)
-  config = {'weightedExamplesColumn': result.config.example_weight_metric_key}
+  config = util.get_slicing_config(result.config)
 
   return visualization.render_slicing_metrics(data, config)
 
