@@ -73,7 +73,7 @@ defined as follows:
 # an 'input' placeholder for input and adds additional 'features', 'labels',
 # and 'predictions' extracts.
 Extractor = NamedTuple('Extractor', [
-    ('stage_name, Text),
+    ('stage_name', Text),
     ('ptransform', beam.PTransform)])  # Extracts -> Extracts
 ```
 
