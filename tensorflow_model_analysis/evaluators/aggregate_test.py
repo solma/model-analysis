@@ -202,11 +202,8 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
 
       def check_overall_slice(slices):
         for i in range(0, 10):
-          self.assertIn((aggregate.SAMPLE_ID, i), slices.keys())
-          my_dict = slices[(
-              aggregate.SAMPLE_ID,
-              i,
-          )]
+          self.assertIn(((aggregate._SAMPLE_ID, i), ()), slices.keys())
+          my_dict = slices[((aggregate._SAMPLE_ID, i), ())]
           self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
           self.assertAlmostEqual(1.0, my_dict['accuracy'])
           self.assertAlmostEqual(0.5, my_dict['label/mean'], delta=0.5)
@@ -215,9 +212,9 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
 
       def check_english_slice(slices):
         for i in range(0, 10):
-          self.assertIn((aggregate.SAMPLE_ID, i, 'language', 'english'),
+          self.assertIn(((aggregate._SAMPLE_ID, i), ('language', 'english')),
                         slices.keys())
-          my_dict = slices[(aggregate.SAMPLE_ID, i, 'language', 'english')]
+          my_dict = slices[((aggregate._SAMPLE_ID, i), ('language', 'english'))]
           self.assertAlmostEqual(3.5, my_dict['my_mean_age'], delta=0.5)
           self.assertAlmostEqual(1.0, my_dict['accuracy'])
           self.assertAlmostEqual(1.0, my_dict['label/mean'])
@@ -226,9 +223,9 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
 
       def check_chinese_slice(slices):
         for i in range(0, 10):
-          self.assertIn((aggregate.SAMPLE_ID, i, 'language', 'chinese'),
+          self.assertIn(((aggregate._SAMPLE_ID, i), ('language', 'chinese')),
                         slices.keys())
-          my_dict = slices[(aggregate.SAMPLE_ID, i, 'language', 'chinese')]
+          my_dict = slices[((aggregate._SAMPLE_ID, i), ('language', 'chinese'))]
           self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
           self.assertAlmostEqual(1.0, my_dict['accuracy'])
           self.assertAlmostEqual(0.0, my_dict['label/mean'])

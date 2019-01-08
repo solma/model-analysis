@@ -18,8 +18,6 @@ from __future__ import division
 
 from __future__ import print_function
 
-import copy
-
 
 import apache_beam as beam
 import numpy as np
@@ -38,7 +36,7 @@ _BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
     beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
 _BeamExtractsType = beam.typehints.Dict[Text, beam.typehints.Any]  # pylint: disable=invalid-name
 
-SAMPLE_ID = '__sample_id'
+_SAMPLE_ID = '___SAMPLE_ID'
 
 
 @beam.ptransform_fn
@@ -94,17 +92,23 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
               main=_ExtractOutputDoFn.OUTPUT_TAG_METRICS))
 
 
+# input_types as defined here does not work correctly with the empty Tuple that
+# is characteristic of the overall slice.
+@beam.typehints.with_output_types(
+    beam.typehints.Tuple[_BeamSliceKeyType, _BeamExtractsType])
 class _FanoutBootstrapFn(beam.DoFn):
   """For each bootstrap sample you want, we fan out an additional slice."""
 
   def __init__(self, num_bootstrap_samples):
     self._num_bootstrap_samples = num_bootstrap_samples
 
-  def process(self, element):
+  def process(
+      self, element
+  ):
     slice_key, value = element
     for i in range(0, self._num_bootstrap_samples):
-      # Make a copy of the slice key, prepend the sample ID.
-      augmented_slice_key = (SAMPLE_ID, i) + copy.copy(slice_key)
+      # Prepend the sample ID to the original slice key.
+      augmented_slice_key = ((_SAMPLE_ID, i), slice_key)
       # This fans out the pipeline, but because we are reducing in a
       # CombinePerKey, we shouldn't have to deal with a great increase in
       # network traffic.
@@ -218,6 +222,12 @@ class _AggregateCombineFn(beam.CombineFn):
         constants.METRICS_NAMESPACE, 'model_load_seconds')
     self._num_compacts = beam.metrics.Metrics.counter(
         constants.METRICS_NAMESPACE, 'num_compacts')
+    # This keeps track of the number of times the poisson bootstrap retries
+    # when an empty set of elements is encountered. Should be extremely rare in
+    # practice, keeping this counter will help us understand if something is
+    # misbehaving.
+    self._num_bootstrap_retries = beam.metrics.Metrics.counter(
+        constants.METRICS_NAMESPACE, 'num_bootstrap_retries')
 
   def _start_bundle(self):
     # There's no initialisation method for CombineFns.
@@ -237,7 +247,8 @@ class _AggregateCombineFn(beam.CombineFn):
           self._eval_shared_model.shared_handle.acquire(
               self._eval_shared_model.construct_fn(self._model_load_seconds)))
 
-  def _poissonify(self, accumulator):
+  def _poissonify(
+      self, accumulator):
     # pylint: disable=line-too-long
     """Creates a bootstrap resample of the data in an accumulator.
 
@@ -253,12 +264,20 @@ class _AggregateCombineFn(beam.CombineFn):
     Returns:
       A list of FPLs representing a bootstrap resample of the accumulator items.
     """
-    fpls_for_metrics = []
-    poisson_values = np.random.poisson(1, len(accumulator.fpls))
-    for i, fpl in enumerate(accumulator.fpls):
-      for _ in range(0, poisson_values[i]):
-        fpls_for_metrics.append(copy.copy(fpl))
-    return fpls_for_metrics
+    result = []
+    if accumulator.fpls:
+      while not result:
+        # It's possible that the distribution will roll zeroes for all of the
+        # examples. In this case we will retry until we have at least one
+        # element chosen. This is to avoid empty metric updates which currently
+        # aren't handled well and should not have an significant statistical
+        # impact.
+        poisson_counts = np.random.poisson(1, len(accumulator.fpls))
+        for i, fpl in enumerate(accumulator.fpls):
+          result.extend([fpl] * poisson_counts[i])
+        if not result:
+          self._num_bootstrap_retries.inc(1)
+    return result
 
   def _maybe_do_batch(self, accumulator,
                       force = False):
@@ -312,8 +331,6 @@ class _AggregateCombineFn(beam.CombineFn):
       # elements if we don't process the batches within the loop, which
       # could cause OOM errors (b/77293756).
       self._maybe_do_batch(result)
-
-    self._maybe_do_batch(result, force=True)
 
     return result
 
@@ -372,12 +389,6 @@ class _ExtractOutputDoFn(beam.DoFn):
     (slice_key, metric_variables) = element
     if metric_variables:
       self._eval_saved_model.set_metric_variables(metric_variables)
-    # Note that there is a negligible chance of a poisson-bootstrap sample
-    # being empty after multiple calls to _maybe_do_batch. In this case it will
-    # return results from the last-computed slice. At reasonable sample sizes,
-    # the odds of this are so astronomical it's barely worth considering much
-    # less guarding against, but I'm putting this comment here to acknowledge
-    # the possibility.
     result = self._eval_saved_model.get_metric_values()
     slicing_metrics = {}
     plots = {}
