@@ -222,7 +222,9 @@ function renderUnsupported(value) {
 function renderFloat(value) {
   return {
     // If value is non-zero, trim it to specified number of digits. If it is
-    // zero, simply show zero.
+    // zero, simply show zero. This helps the user to differentiate really small
+    // values that get rounded off to 0.00000 from 0.
+    // @bug 32777052 (comment 37)
     'f': value === 0 ? '0' : trimFloat(value),
     'v': value,
   };
@@ -258,6 +260,7 @@ function parseRowId(value) {
   let result = parseInt(value, 10);
   if (result.toString() == value) {
     // Only return if value is a pure integer.
+    // @bug 64568820
     return result;
   }
   let separator = value.lastIndexOf('_') > value.lastIndexOf(':') ? '_' : ':';
