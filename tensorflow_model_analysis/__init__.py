@@ -16,11 +16,8 @@
 
 from tensorflow_model_analysis import view
 # pylint: disable=unused-import
-from tensorflow_model_analysis import evaluators
-from tensorflow_model_analysis import extractors
-from tensorflow_model_analysis import slicer
-from tensorflow_model_analysis import validators
-from tensorflow_model_analysis import writers
+# pylint: disable=g-bad-import-order
+
 from tensorflow_model_analysis.api import tfma_unit as test
 
 from tensorflow_model_analysis.api.model_eval_lib import default_eval_shared_model
@@ -64,6 +61,12 @@ from tensorflow_model_analysis.types import TensorType
 from tensorflow_model_analysis.types import TensorTypeMaybeDict
 
 from tensorflow_model_analysis.version import VERSION_STRING
+
+from tensorflow_model_analysis import extractors
+from tensorflow_model_analysis import slicer
+from tensorflow_model_analysis import validators
+from tensorflow_model_analysis import evaluators
+from tensorflow_model_analysis import writers
 
 def _jupyter_nbextension_paths():
   return [{
