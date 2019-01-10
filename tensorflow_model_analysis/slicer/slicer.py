@@ -42,17 +42,20 @@ FeatureValueType = Union[bytes, int, float]  # pylint: disable=invalid-name
 # feature-value pair.
 SingletonSliceKeyType = Tuple[Text, FeatureValueType]  # pylint: disable=invalid-name
 
-# SliceKeyType is a tuple of SingletonSliceKeyType. This completely describes
-# a single slice.
-SliceKeyType = Tuple[SingletonSliceKeyType, Ellipsis]  # pylint: disable=invalid-name
+# SliceKeyType is a either the empty tuple (for the overal slice) or a tuple of
+# SingletonSliceKeyType. This completely describes a single slice.
+SliceKeyType = Union[Tuple[()], Tuple[SingletonSliceKeyType, Ellipsis]]  # pylint: disable=invalid-name
 
 OVERALL_SLICE_NAME = 'Overall'
 
 # For use in Beam type annotations, because Beam's support for Python types
 # in Beam type annotations is not complete.
-_BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
-    beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
-_BeamExtractsType = beam.typehints.Dict[Text, beam.typehints.Any]  # pylint: disable=invalid-name
+BeamSliceKeyType = beam.typehints.Union[  # pylint: disable=invalid-name
+    beam.typehints.Tuple[beam.typehints.Tuple[(
+    )], beam.typehints.Union[bytes, int, float]],
+    beam.typehints.Tuple[beam.typehints.Tuple[Text, beam.typehints
+                                              .Union[bytes, int, float]], Ellipsis]]
+BeamExtractsType = beam.typehints.Dict[Text, beam.typehints.Any]  # pylint: disable=invalid-name
 
 
 class SingleSliceSpec(object):
@@ -353,7 +356,7 @@ def stringify_slice_key(slice_key):
 
 @beam.typehints.with_input_types(types.Extracts)
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, _BeamExtractsType])
+    beam.typehints.Tuple[BeamSliceKeyType, BeamExtractsType])
 class _FanoutSlicesDoFn(beam.DoFn):
   """A DoFn that performs per-slice key fanout prior to computing aggregates."""
 
@@ -386,7 +389,7 @@ class _FanoutSlicesDoFn(beam.DoFn):
 @beam.ptransform_fn
 @beam.typehints.with_input_types(types.Extracts)
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, types.Extracts])  # pylint: disable=invalid-name
+    beam.typehints.Tuple[BeamSliceKeyType, types.Extracts])  # pylint: disable=invalid-name
 def FanoutSlices(pcoll,
                  include_slice_keys_in_output = False
                 ):  # pylint: disable=invalid-name

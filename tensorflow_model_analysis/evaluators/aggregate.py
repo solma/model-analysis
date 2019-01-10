@@ -30,21 +30,16 @@ from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.slicer import slicer
 from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterable, List, Optional, Text, Tuple
 
-# For use in Beam type annotations, because Beam's support for Python types
-# in Beam type annotations is not complete.
-_BeamSliceKeyType = beam.typehints.Tuple[  # pylint: disable=invalid-name
-    beam.typehints.Tuple[Text, beam.typehints.Union[bytes, int, float]], Ellipsis]
-_BeamExtractsType = beam.typehints.Dict[Text, beam.typehints.Any]  # pylint: disable=invalid-name
 
 _SAMPLE_ID = '___SAMPLE_ID'
 
 
 @beam.ptransform_fn
 @beam.typehints.with_input_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, _BeamExtractsType])
+    beam.typehints.Tuple[slicer.BeamSliceKeyType, slicer.BeamExtractsType])
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.List[beam.typehints
-                                                                .Any]])
+    beam.typehints.Tuple[slicer.BeamSliceKeyType, beam.typehints
+                         .List[beam.typehints.Any]])
 def ComputePerSliceMetrics(  # pylint: disable=invalid-name
     slice_result,
     eval_shared_model,
@@ -70,6 +65,8 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
     PCollection of (slice key, metrics) and
     PCollection of (slice key, plot metrics).
   """
+  slice_result.element_type = beam.typehints.Any
+
   compute_with_sampling = False
   if num_bootstrap_samples < 1:
     raise ValueError(
@@ -78,24 +75,25 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
     slice_result = slice_result | 'FanoutBootstrap' >> beam.ParDo(
         _FanoutBootstrapFn(num_bootstrap_samples))
     compute_with_sampling = True
+  fanout = 16
   return (
       slice_result
       | 'CombinePerSlice' >> beam.CombinePerKey(
           _AggregateCombineFn(
               eval_shared_model=eval_shared_model,
               desired_batch_size=desired_batch_size,
-              compute_with_sampling=compute_with_sampling))
-      .with_hot_key_fanout(fanout=16)
+              compute_with_sampling=compute_with_sampling)).with_hot_key_fanout(
+                  fanout)
       | 'InterpretOutput' >> beam.ParDo(
           _ExtractOutputDoFn(eval_shared_model=eval_shared_model)).with_outputs(
               _ExtractOutputDoFn.OUTPUT_TAG_PLOTS,
               main=_ExtractOutputDoFn.OUTPUT_TAG_METRICS))
 
 
-# input_types as defined here does not work correctly with the empty Tuple that
-# is characteristic of the overall slice.
+@beam.typehints.with_input_types(
+    beam.typehints.Tuple[slicer.BeamSliceKeyType, slicer.BeamExtractsType])
 @beam.typehints.with_output_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, _BeamExtractsType])
+    beam.typehints.Tuple[slicer.BeamSliceKeyType, slicer.BeamExtractsType])
 class _FanoutBootstrapFn(beam.DoFn):
   """For each bootstrap sample you want, we fan out an additional slice."""
 
@@ -164,7 +162,7 @@ class _AggState(object):
                                                   metric_variables)
 
 
-@beam.typehints.with_input_types(beam.typehints.Any)
+@beam.typehints.with_input_types(slicer.BeamExtractsType)
 @beam.typehints.with_output_types(beam.typehints.List[beam.typehints.Any])
 class _AggregateCombineFn(beam.CombineFn):
   """Aggregate combine function.
@@ -195,8 +193,8 @@ class _AggregateCombineFn(beam.CombineFn):
   """
 
   # This needs to be large enough to allow for efficient TF invocations during
-  # batch flushing, but shouldn't be too large as it could lead to large amount
-  # of data being shuffled for non-flushed batches.
+  # batch flushing, but shouldn't be too large as it also acts as cap on the
+  # maximum memory usage of the computation.
   _DEFAULT_DESIRED_BATCH_SIZE = 100
 
   def __init__(self,
@@ -331,7 +329,6 @@ class _AggregateCombineFn(beam.CombineFn):
       # elements if we don't process the batches within the loop, which
       # could cause OOM errors (b/77293756).
       self._maybe_do_batch(result)
-
     return result
 
   def compact(self, accumulator):
@@ -350,8 +347,8 @@ class _AggregateCombineFn(beam.CombineFn):
 
 
 @beam.typehints.with_input_types(
-    beam.typehints.Tuple[_BeamSliceKeyType, beam.typehints.List[beam.typehints
-                                                                .Any]])
+    beam.typehints.Tuple[slicer.BeamSliceKeyType, beam.typehints
+                         .List[beam.typehints.Any]])
 # No typehint for output type, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
 class _ExtractOutputDoFn(beam.DoFn):
