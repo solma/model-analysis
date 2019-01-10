@@ -246,6 +246,9 @@ setup_args = {
         'ipywidgets>=7.0,<8',
         'protobuf>=3.6.0,<4',
         # For apitools.
+        # Note: try version 1.10 if error "metaclass conflict: the
+        # metaclass of a derived class must be a (non-strict) subclass of the
+        # metaclasses of all its bases" occurred in future.
         'six>=1.9,<2',
         'tensorflow-transform>=0.11,<1',
     ],

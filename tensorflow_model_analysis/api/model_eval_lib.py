@@ -211,6 +211,9 @@ def default_eval_shared_model(
       will be 1 for each example.
   """
   # Always compute example weight and example count.
+  # PyType doesn't know about the magic exports we do in post_export_metrics.
+  # Additionally, the lines seem to get reordered in compilation, so we can't
+  # just put the disable-attr on the add_metrics_callbacks lines.
   # pytype: disable=module-attr
   if not add_metrics_callbacks:
     add_metrics_callbacks = []

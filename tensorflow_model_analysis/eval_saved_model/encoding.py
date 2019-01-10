@@ -47,6 +47,9 @@ _TUPLE_KEY_PREFIX = b'$Tuple$'
 _BYTES_KEY_PREFIX = b'$Bytes$'
 
 
+def build_data(field):
+  """Returns the build data collection name for the given field."""
+  return 'evaluation_only/build_data/%s' % field  # pytype: disable=bad-return-type
 
 
 def with_suffix(name, suffix):

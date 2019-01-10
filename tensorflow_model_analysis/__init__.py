@@ -13,11 +13,10 @@
 # limitations under the License.
 """Init module for TensorFlow Model Analysis on notebook."""
 
-
-from tensorflow_model_analysis import view
 # pylint: disable=unused-import
 # pylint: disable=g-bad-import-order
 
+from tensorflow_model_analysis import view
 from tensorflow_model_analysis.api import tfma_unit as test
 
 from tensorflow_model_analysis.api.model_eval_lib import default_eval_shared_model
@@ -37,6 +36,7 @@ from tensorflow_model_analysis.api.model_eval_lib import multiple_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import run_model_analysis
 from tensorflow_model_analysis.api.model_eval_lib import WriteResults
 
+from tensorflow_model_analysis.api.verifier_lib import Validate
 
 from tensorflow_model_analysis.constants import ANALYSIS_KEY
 from tensorflow_model_analysis.constants import BASELINE_KEY
@@ -57,6 +57,7 @@ from tensorflow_model_analysis.post_export_metrics import post_export_metrics
 from tensorflow_model_analysis.types import EvalSharedModel
 from tensorflow_model_analysis.types import Extracts
 from tensorflow_model_analysis.types import FeaturesPredictionsLabels
+from tensorflow_model_analysis.types import MaterializedColumn
 from tensorflow_model_analysis.types import TensorType
 from tensorflow_model_analysis.types import TensorTypeMaybeDict
 

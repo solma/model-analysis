@@ -36,7 +36,7 @@ def wrap_tensor_or_dict_of_tensors_in_identity(
   Args:
     tensor_or_dict_of_tensors: Tensor or dict of Tensors to wrap around.
 
-  Workaround for TensorFlow issue #17568.
+  Workaround for TensorFlow issue #17568 (b/71769512).
 
   Returns:
     Tensor or dict of Tensors wrapped with tf.identity.
