@@ -31,16 +31,14 @@ from tensorflow_model_analysis import version
 from tensorflow_model_analysis.eval_saved_model import constants
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.eval_saved_model import util
+
 from tensorflow_model_analysis.types_compat import Callable, Dict, Optional, Text, Union
 
 from tensorflow.python.estimator.export import export as export_lib
 
-
 # Return type of EvalInputReceiver function.
 EvalInputReceiverType = Union[  # pylint: disable=invalid-name
     export_lib.SupervisedInputReceiver, export_lib.UnsupervisedInputReceiver]
-
-
 
 
 @tfma_util.kwargs_only
@@ -122,6 +120,7 @@ def EvalInputReceiver(  # pylint: disable=invalid-name
 
   _add_tfma_collections(features, labels, input_refs)
 
+
   # Workaround for TensorFlow issue #17568. Note that we pass the
   # identity-wrapped features and labels to model_fn, but we have to feed
   # the non-identity wrapped Tensors during evaluation.
@@ -201,6 +200,7 @@ def _LegacyEvalInputReceiver(  # pylint: disable=invalid-name
   # Note that in the collection we store the unwrapped versions, because
   # we want to feed the unwrapped versions.
   _add_tfma_collections(features, labels, input_refs)
+
   return receiver
 
 
