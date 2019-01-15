@@ -109,15 +109,17 @@ class EvalSavedModel(eval_metrics_graph.EvalMetricsGraph):
     in the future.
 
     Raises:
-      ValueError: Could not find signature keyed with EVAL_TAG; or
-        signature_def did not have exactly one input; or there was a signature
-        output with the metric prefix but an unrecognised suffix.
+      ValueError: Could not find signature keyed with
+        DEFAULT_EVAL_SIGNATURE_DEF_KEY; or signature_def did not have exactly
+        one input; or there was a signature output with the metric prefix but an
+        unrecognised suffix.
     """
     meta_graph_def = tf.saved_model.loader.load(
         self._session, [constants.EVAL_TAG], self._path)
 
     with self._graph.as_default():
-      signature_def = meta_graph_def.signature_def.get(constants.EVAL_TAG)
+      signature_def = meta_graph_def.signature_def.get(
+          constants.DEFAULT_EVAL_SIGNATURE_DEF_KEY)
       if signature_def is None:
         raise ValueError('could not find signature with name %s. signature_def '
                          'was %s' % (constants.EVAL_TAG, signature_def))

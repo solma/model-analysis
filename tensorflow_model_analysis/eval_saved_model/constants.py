@@ -33,6 +33,7 @@ DEFAULT_PREDICTIONS_DICT_KEY = '__predictions'
 DEFAULT_LABELS_DICT_KEY = '__labels'
 
 EVAL_TAG = 'eval'
+DEFAULT_EVAL_SIGNATURE_DEF_KEY = 'eval'
 PREDICTIONS_NAME = 'predictions'
 METRICS_NAME = 'metrics'
 METRIC_VALUE_SUFFIX = 'value'
