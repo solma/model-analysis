@@ -260,9 +260,10 @@ def ComputeMetricsAndPlots(  # pylint: disable=invalid-name
 
   Args:
     extracts: PCollection of Extracts. The extracts MUST contain a
-      FeaturesPredictionsLabels extract with key 'fpl' and a list of
-      SliceKeyType extracts with key 'slice_keys'. Typically these will be added
-      by calling the default_extractors function.
+      FeaturesPredictionsLabels extract keyed by
+      tfma.FEATURE_PREDICTIONS_LABELS_KEY and a list of SliceKeyType extracts
+      keyed by tfma.SLICE_KEY_TYPES_KEY. Typically these will be added by
+      calling the default_extractors function.
     eval_shared_model: Shared model parameters for EvalSavedModel including any
       additional metrics (see EvalSharedModel for more information on how to
       configure additional metrics).
@@ -306,9 +307,10 @@ def EvaluateMetricsAndPlots(  # pylint: disable=invalid-name
 
   Args:
     extracts: PCollection of Extracts. The extracts MUST contain a
-      FeaturesPredictionsLabels extract with key 'fpl' and a list of
-      SliceKeyType extracts with key 'slice_keys'. Typically these will be added
-      by calling the default_extractors function.
+      FeaturesPredictionsLabels extract keyed by
+      tfma.FEATURE_PREDICTION_LABELS_KEY and a list of SliceKeyType extracts
+      keyed by tfma.SLICE_KEY_TYPES_KEY. Typically these will be added by
+      calling the default_extractors function.
     eval_shared_model: Shared model parameters for EvalSavedModel including any
       additional metrics (see EvalSharedModel for more information on how to
       configure additional metrics).
@@ -324,7 +326,8 @@ def EvaluateMetricsAndPlots(  # pylint: disable=invalid-name
   metrics, plots = (
       extracts
       | 'Filter' >> extractor.Filter(include=[
-          constants.FEATURES_PREDICTIONS_LABELS_KEY, constants.SLICE_KEYS_KEY
+          constants.FEATURES_PREDICTIONS_LABELS_KEY,
+          constants.SLICE_KEY_TYPES_KEY
       ])
       | 'ComputeMetricsAndPlots' >> ComputeMetricsAndPlots(
           eval_shared_model, desired_batch_size))

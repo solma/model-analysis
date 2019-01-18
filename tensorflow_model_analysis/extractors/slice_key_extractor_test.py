@@ -91,8 +91,8 @@ class SliceTest(testutil.TensorflowModelAnalysisTest):
                                      [(), (('gender', 'm'),)]])
           got_results = []
           for item in got:
-            self.assertTrue(constants.SLICE_KEYS_KEY in item)
-            got_results.append(sorted(item[constants.SLICE_KEYS_KEY]))
+            self.assertTrue(constants.SLICE_KEY_TYPES_KEY in item)
+            got_results.append(sorted(item[constants.SLICE_KEY_TYPES_KEY]))
           self.assertEqual(sorted(got_results), sorted(expected_results))
         except AssertionError as err:
           raise util.BeamAssertException(err)

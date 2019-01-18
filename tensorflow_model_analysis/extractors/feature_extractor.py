@@ -146,8 +146,8 @@ def _MaterializeFeatures(
       original isn't mutated) with features populated.
 
   Raises:
-    RuntimeError: When 'fpl' key is not populated by PredictExtractor for FPL
-      source or incorrect extraction source given.
+    RuntimeError: When tfma.FEATURES_PREDICTIONS_LABELS_KEY key is not populated
+      by PredictExtractor for FPL source or incorrect extraction source given.
   """
   # Make a a shallow copy, so we don't mutate the original.
   result = copy.copy(extracts)

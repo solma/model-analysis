@@ -39,12 +39,13 @@ def SliceKeyExtractor(
   """Creates an extractor for extracting slice keys.
 
   The incoming Extracts must contain a FeaturesPredictionsLabels extract keyed
-  by 'fpl'. Typically this will be obtained by calling the PredictExtractor.
+  by tfma.FEATURES_PREDICTIONS_LABELS_KEY. Typically this will be obtained by
+  calling the PredictExtractor.
 
   The extractor's PTransform yields a copy of the Extracts input with an
-  additional 'slice_keys' extract pointing at the list of SliceKeyType values.
-  If materialize is True then a materialized version of the slice keys will be
-  added under the key 'materialized_slice_keys'.
+  additional extract pointing at the list of SliceKeyType values keyed by
+  tfma.SLICE_KEY_TYPES_KEY. If materialize is True then a materialized version
+  of the slice keys will be added under the key tfma.MATERIALZED_SLICE_KEYS_KEY.
 
   Args:
     slice_spec: Optional list of SingleSliceSpec specifying the slices to slice
@@ -86,7 +87,7 @@ class _ExtractSliceKeysFn(beam.DoFn):
     # Make a a shallow copy, so we don't mutate the original.
     element_copy = copy.copy(element)
 
-    element_copy[constants.SLICE_KEYS_KEY] = slices
+    element_copy[constants.SLICE_KEY_TYPES_KEY] = slices
     # Add a list of stringified slice keys to be materialized to output table.
     if self._materialize:
       element_copy[

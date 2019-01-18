@@ -30,15 +30,15 @@ SPARSE_PLACEHOLDER = 'sparse_placeholder'
 
 METRICS_NAMESPACE = 'tensorflow_model_analysis'
 
-# Keys for Extracts dictionary.
+# Keys for Extracts dictionary (keys starting with _ will not be materialized).
 
 # Input key. Could be a serialised tf.train.Example, a CSV row, JSON data, etc
 # depending on what the EvalInputReceiver was configured to accept as input.
 INPUT_KEY = 'input'
 # Features, predictions, and labels key.
-FEATURES_PREDICTIONS_LABELS_KEY = 'fpl'
+FEATURES_PREDICTIONS_LABELS_KEY = '_fpl'
 # Contains SliceKeyTypes that are used to fanout and aggregate.
-SLICE_KEYS_KEY = 'slice_keys'
+SLICE_KEY_TYPES_KEY = '_slice_key_types'
 # Human-readable slice strings that are written to the diagnostic table for
 # analysis.
 MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'

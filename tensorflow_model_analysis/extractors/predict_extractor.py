@@ -39,8 +39,9 @@ def PredictExtractor(eval_shared_model,
   """Creates an Extractor for TFMAPredict.
 
   The extractor's PTransform loads and runs the eval_saved_model against every
-  example yielding a copy of the Extracts input with an additional 'fpl' extract
-  of type FeaturesPredictionsLabels.
+  example yielding a copy of the Extracts input with an additional extract
+  of type FeaturesPredictionsLabels keyed by
+  tfma.FEATURES_PREDICTIONS_LABELS_KEY.
 
   Args:
     eval_shared_model: Shared model parameters for EvalSavedModel.

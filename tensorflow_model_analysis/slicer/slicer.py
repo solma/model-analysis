@@ -372,11 +372,11 @@ class _FanoutSlicesDoFn(beam.DoFn):
     filtered = {}
     for key in element:
       if not self._include_slice_keys_in_output and key in (
-          constants.SLICE_KEYS_KEY, constants.MATERIALIZED_SLICE_KEYS_KEY):
+          constants.SLICE_KEY_TYPES_KEY, constants.MATERIALIZED_SLICE_KEYS_KEY):
         continue
       filtered[key] = element[key]
     slice_count = 0
-    for slice_key in element.get(constants.SLICE_KEYS_KEY):
+    for slice_key in element.get(constants.SLICE_KEY_TYPES_KEY):
       slice_count += 1
       yield (slice_key, filtered)
 
