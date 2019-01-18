@@ -43,6 +43,21 @@ SLICE_KEY_TYPES_KEY = '_slice_key_types'
 # analysis.
 MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'
 
+# Separator used when combining multiple layers of Extracts keys into a single
+# string. Normally we would like to use '.' or '/' as a separator, but the
+# output gets written to a table backed by a proto based schema which limits the
+# characters that can be used to [a-zA-Z_].
+KEY_SEPARATOR = '__'
+# Suffix used for Extracts keys when the extract represents the keys for the top
+# k of a set of possible values.
+KEYS_SUFFIX = 'keys'
+# Suffix used for Extracts keys when the extract represents the values for the
+# top k of a set of possible values.
+VALUES_SUFFIX = 'values'
+# Suffix used for Extracts keys when the extract represents an attribution
+# score.
+SCORE_SUFFIX = 'score'
+
 # Keys for Evaluation/Validation dictionaries
 
 # Metrics output key.

@@ -99,31 +99,32 @@ class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
             materialized_dict,
             {
                 # Slice key
-                'slice_key':
+                'features__slice_key':
                     types.MaterializedColumn(
-                        name='slice_key', value=[b'first_slice']),
+                        name='features__slice_key', value=[b'first_slice']),
 
                 # Features
-                'language':
+                'features__language':
                     types.MaterializedColumn(
                         name='features__language', value=[b'english']),
-                'age':
+                'features__age':
                     types.MaterializedColumn(
                         name='features__age',
                         value=np.array([3.], dtype=np.float32)),
 
                 # Label
-                'label':
+                'features__label':
                     types.MaterializedColumn(
-                        name='labels__label',
+                        name='features__label',
                         value=np.array([1.], dtype=np.float32)),
-                '__labels':
+                'labels':
                     types.MaterializedColumn(
                         name='labels', value=np.array([1.], dtype=np.float32)),
             })
         self._assertMaterializedColumnsExist(materialized_dict, [
-            'logits', 'probabilities', 'classes', 'logistic', 'class_ids',
-            constants.MATERIALIZED_SLICE_KEYS_KEY
+            'predictions__logits', 'predictions__probabilities',
+            'predictions__classes', 'predictions__logistic',
+            'predictions__class_ids', constants.MATERIALIZED_SLICE_KEYS_KEY
         ])
 
       util.assert_that(result[constants.ANALYSIS_KEY], check_result)
@@ -168,9 +169,11 @@ class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
                             b'age_X_language:3.0_X_english'
                         ])
             })
-        self._assertMaterializedColumnsExist(
-            materialized_dict,
-            ['logits', 'probabilities', 'classes', 'logistic', 'class_ids'])
+        self._assertMaterializedColumnsExist(materialized_dict, [
+            'predictions__logits', 'predictions__probabilities',
+            'predictions__classes', 'predictions__logistic',
+            'predictions__class_ids'
+        ])
 
       util.assert_that(result[constants.ANALYSIS_KEY], check_result)
 

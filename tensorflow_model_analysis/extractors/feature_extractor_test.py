@@ -92,14 +92,14 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     self.assertTrue(isinstance(result, dict))
     self.assertEqual(result[constants.FEATURES_PREDICTIONS_LABELS_KEY],
                      fpl)  # should still be there.
-    self.assertEqual(result['f'],
+    self.assertEqual(result['features__f'],
                      types.MaterializedColumn(name='features__f', value=[1]))
-    self.assertEqual(result['p'],
+    self.assertEqual(result['predictions__p'],
                      types.MaterializedColumn(name='predictions__p', value=[2]))
-    self.assertEqual(result['l'],
+    self.assertEqual(result['labels__l'],
                      types.MaterializedColumn(name='labels__l', value=[3]))
     self.assertEqual(
-        result['s'],
+        result['features__s'],
         types.MaterializedColumn(name='features__s', value=[100., 200., 300.]))
 
   def testMaterializeFeaturesFromTfExample(self):
@@ -113,13 +113,13 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
     self.assertEqual(result[constants.INPUT_KEY],
                      input_example)  # should still be there.
     self.assertEqual(
-        result['age'],
+        result['features__age'],
         types.MaterializedColumn(name='features__age', value=[3.0]))
     self.assertEqual(
-        result['language'],
+        result['features__language'],
         types.MaterializedColumn(name='features__language', value=[b'english']))
     self.assertEqual(
-        result['label'],
+        result['features__label'],
         types.MaterializedColumn(name='features__label', value=[1.0]))
 
   def testMaterializeFeaturesWithBadSource(self):
@@ -160,7 +160,7 @@ class BuildDiagnosticsTableTest(testutil.TensorflowModelAnalysisTest):
                 labels=labels)
     }
     result = feature_extractor._MaterializeFeatures(extracts, excludes=['s'])
-    self.assertFalse('s' in result)
+    self.assertFalse('features__s' in result)
 
 
 if __name__ == '__main__':

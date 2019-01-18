@@ -44,9 +44,12 @@ from tensorflow_model_analysis.constants import CANDIDATE_KEY
 from tensorflow_model_analysis.constants import DATA_CENTRIC_MODE
 from tensorflow_model_analysis.constants import FEATURES_PREDICTIONS_LABELS_KEY
 from tensorflow_model_analysis.constants import INPUT_KEY
+from tensorflow_model_analysis.constants import KEYS_SUFFIX
 from tensorflow_model_analysis.constants import METRICS_KEY
 from tensorflow_model_analysis.constants import MODEL_CENTRIC_MODE
 from tensorflow_model_analysis.constants import PLOTS_KEY
+from tensorflow_model_analysis.constants import SCORE_SUFFIX
+from tensorflow_model_analysis.constants import VALUES_SUFFIX
 
 from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import export
@@ -60,6 +63,9 @@ from tensorflow_model_analysis.types import FeaturesPredictionsLabels
 from tensorflow_model_analysis.types import MaterializedColumn
 from tensorflow_model_analysis.types import TensorType
 from tensorflow_model_analysis.types import TensorTypeMaybeDict
+
+from tensorflow_model_analysis.util import compound_key
+from tensorflow_model_analysis.util import unique_key
 
 from tensorflow_model_analysis.version import VERSION_STRING
 

@@ -26,6 +26,7 @@ import tensorflow as tf
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
+from tensorflow_model_analysis import util
 from tensorflow_model_analysis.eval_saved_model import encoding
 from tensorflow_model_analysis.extractors import extractor
 from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Text
@@ -34,27 +35,6 @@ from tensorflow_model_analysis.types_compat import Any, Dict, List, Optional, Te
 _MAX_SPARSE_FEATURES_PER_COLUMN = 10
 
 FEATURE_EXTRACTOR_STAGE_NAME = 'ExtractFeatures'
-
-# Separator for the different segments that make up a column name. Normally we
-# would like to use '.' or '/' as a separator, but the output gets written to a
-# table backed by a proto based schema which limits the characters that can be
-# used to [a-zA-Z_].
-_NAME_SEPARATOR = '__'
-
-
-def _create_col_name(  # pylint: disable=invalid-name
-    segments,
-    separator = _NAME_SEPARATOR):
-  """Returns a column name based on a list of segments.
-
-  Args:
-    segments: Segments used to make up column name.
-    separator: Separator between segments. To ensure the segments can be parsed
-      out of any column name created, any use of a separator within a segment
-      will be replaced by two separators.
-  """
-  return separator.join(
-      [segment.replace(separator, separator * 2) for segment in segments])
 
 
 def FeatureExtractor(
@@ -86,20 +66,20 @@ def _AugmentExtracts(fpl_dict, prefix,
       continue
     val = val.get(encoding.NODE_SUFFIX)
 
-    if name in (prefix, _NAME_SEPARATOR + prefix):
+    if name in (prefix, constants.KEY_SEPARATOR + prefix):
       col_name = prefix
     else:
-      col_name = _create_col_name([prefix, name])
+      col_name = util.compound_key([prefix, name])
 
     if isinstance(val, tf.SparseTensorValue):
-      extracts[name] = types.MaterializedColumn(
+      extracts[col_name] = types.MaterializedColumn(
           name=col_name, value=val.values[0:_MAX_SPARSE_FEATURES_PER_COLUMN])
 
     elif isinstance(val, np.ndarray):
       val = val[0]  # only support first dim for now.
       if not np.isscalar(val):
         val = val[0:_MAX_SPARSE_FEATURES_PER_COLUMN]
-      extracts[name] = types.MaterializedColumn(name=col_name, value=val)
+      extracts[col_name] = types.MaterializedColumn(name=col_name, value=val)
 
     else:
       raise TypeError(
@@ -114,6 +94,7 @@ def _ParseExample(extracts):
   example.ParseFromString(extracts[constants.INPUT_KEY])
 
   for name in example.features.feature:
+    key = util.compound_key(['features', name])
     value = example.features.feature[name]
     if value.HasField('bytes_list'):
       values = [v for v in value.bytes_list.value]
@@ -121,8 +102,7 @@ def _ParseExample(extracts):
       values = [v for v in value.float_list.value]
     elif value.HasField('int64_list'):
       values = [v for v in value.int64_list.value]
-    extracts[name] = types.MaterializedColumn(
-        name=_create_col_name(['features', name]), value=values)
+    extracts[key] = types.MaterializedColumn(name=key, value=values)
 
 
 def _MaterializeFeatures(
