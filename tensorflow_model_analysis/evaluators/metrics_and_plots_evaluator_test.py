@@ -88,6 +88,11 @@ def _make_slice_key(*args):
   return tuple(result)
 
 
+def _full_key(name_constant):
+  """Convenient way of getting metric prefixed with 'post_export_metrics'."""
+  return metric_keys.add_metric_prefix(name_constant, metric_keys.NAME_PREFIX)
+
+
 class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
 
   def setUp(self):
@@ -99,14 +104,14 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
   def testSerializePlots(self):
     slice_key = _make_slice_key('fruit', 'apple')
     tfma_plots = {
-        metric_keys.CALIBRATION_PLOT_MATRICES:
+        _full_key(metric_keys.CALIBRATION_PLOT_MATRICES):
             np.array([
                 [0.0, 0.0, 0.0],
                 [0.3, 1.0, 1.0],
                 [0.7, 0.0, 1.0],
                 [0.0, 0.0, 0.0],
             ]),
-        metric_keys.CALIBRATION_PLOT_BOUNDARIES:
+        _full_key(metric_keys.CALIBRATION_PLOT_BOUNDARIES):
             np.array([0.0, 0.5, 1.0]),
     }
     expected_plot_data = """
@@ -161,12 +166,12 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
     slice_key = _make_slice_key('age', 5, 'language', 'english', 'price', 0.3)
     slice_metrics = {
         'accuracy': 0.8,
-        metric_keys.AUPRC: 0.1,
-        metric_keys.lower_bound(metric_keys.AUPRC): 0.05,
-        metric_keys.upper_bound(metric_keys.AUPRC): 0.17,
-        metric_keys.AUC: 0.2,
-        metric_keys.lower_bound(metric_keys.AUC): 0.1,
-        metric_keys.upper_bound(metric_keys.AUC): 0.3
+        _full_key(metric_keys.AUPRC): 0.1,
+        _full_key(metric_keys.lower_bound(metric_keys.AUPRC)): 0.05,
+        _full_key(metric_keys.upper_bound(metric_keys.AUPRC)): 0.17,
+        _full_key(metric_keys.AUC): 0.2,
+        _full_key(metric_keys.lower_bound(metric_keys.AUC)): 0.1,
+        _full_key(metric_keys.upper_bound(metric_keys.AUC)): 0.3
     }
     expected_metrics_for_slice = text_format.Parse(
         string.Template("""
@@ -225,7 +230,8 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
               methodology: RIEMANN_SUM
             }
           }
-        }""").substitute(auc=metric_keys.AUC, auprc=metric_keys.AUPRC),
+        }""").substitute(
+            auc=_full_key(metric_keys.AUC), auprc=_full_key(metric_keys.AUPRC)),
         metrics_for_slice_pb2.MetricsForSlice())
 
     got = metrics_and_plots_evaluator._serialize_metrics(
@@ -619,7 +625,7 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
           self.assertDictMatrixRowsAlmostEqual(
               got_values_dict=value,
               expected_values_dict={
-                  metric_keys.AUC_PLOTS_MATRICES: [(8001, [
+                  _full_key(metric_keys.AUC_PLOTS_MATRICES): [(8001, [
                       2, 1, 0, 1, 1.0 / 1.0, 1.0 / 3.0
                   ])],
               })

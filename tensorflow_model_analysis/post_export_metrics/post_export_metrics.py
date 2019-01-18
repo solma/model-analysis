@@ -197,7 +197,14 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
         target_prediction_keys or default_key_precedence)
     self._tensor_index = tensor_index
     self._labels_key = labels_key
-    self._metric_tag = metric_tag
+    if target_prediction_keys:
+      tf.logging.info(target_prediction_keys)
+      self._metric_tag = target_prediction_keys[0]
+    if metric_tag:
+      # Specified metric tag takes priority over target_prediction_key if
+      # defined.
+      tf.logging.info(metric_tag)
+      self._metric_tag = metric_tag
 
   def _select_class(self, predictions_tensor, labels_tensor):
     """Gets predictions and labels for the class at index self._tensor_index."""
@@ -261,7 +268,8 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
     # class to evaluate.
     return self._select_class(predictions_tensor, labels_tensor)
 
-  def _metric_key(self, base_key):
+  def _metric_key(self, base_key,
+                  add_prefix = True):
     """Constructs a metric key, including user-specified prefix if necessary.
 
     In cases with multi-headed models, an evaluation may need multiple instances
@@ -271,15 +279,17 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
 
     Args:
       base_key: The original key for the metric, often from metric_keys.
+      add_prefix: If true, prepends the metric key with 'post_export_metrics'.
 
     Returns:
       Either the base key, or the key augmented with a specified tag or label.
     """
+    tagged_key = base_key
     if self._metric_tag:
-      return metric_keys.add_metric_prefix(base_key, self._metric_tag)
-    if self._labels_key:
-      return metric_keys.add_metric_prefix(base_key, self._labels_key)
-    return base_key
+      tagged_key = metric_keys.add_metric_prefix(base_key, self._metric_tag)
+    if add_prefix:
+      return metric_keys.add_metric_prefix(tagged_key, metric_keys.NAME_PREFIX)
+    return tagged_key
 
   @abc.abstractmethod
   def check_compatibility(self, features_dict,
@@ -375,7 +385,7 @@ class _ExampleCount(_PostExportMetric):
   """
 
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
 
   def check_compatibility(self, features_dict,
                           predictions_dict,
@@ -422,7 +432,7 @@ class _ExampleCount(_PostExportMetric):
         ref_tensor = tf.constant([])
 
     return {
-        self._metric_key(metric_keys.EXAMPLE_COUNT):
+        self._metric_key(metric_keys.EXAMPLE_COUNT_BASE):
             metrics.total(tf.shape(ref_tensor)[0])
     }
 
@@ -432,7 +442,7 @@ class _ExampleWeight(_PostExportMetric):
   """Metric that computes the sum of example weights."""
 
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
 
   def __init__(self,
                example_weight_key,
@@ -459,7 +469,9 @@ class _ExampleWeight(_PostExportMetric):
                      labels_dict
                     ):
     value = features_dict[self._example_weight_key]
-    return {self._metric_key(metric_keys.EXAMPLE_WEIGHT): metrics.total(value)}
+    return {
+        self._metric_key(metric_keys.EXAMPLE_WEIGHT_BASE): metrics.total(value)
+    }
 
 
 _DEFAULT_NUM_BUCKETS = 10000
@@ -479,7 +491,7 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
 
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
   _tensor_index = Ellipsis  # type: int
 
   def __init__(self,
@@ -635,7 +647,7 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
 
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
 
   def __init__(self,
                thresholds,
@@ -828,7 +840,7 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
 
   _thresholds = Ellipsis  # type: List[float]
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
   _tensor_index = Ellipsis  # type: int
 
   def __init__(self,
@@ -913,7 +925,7 @@ class _Auc(_PostExportMetric):
 
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
   _tensor_index = Ellipsis  # type: int
 
   def __init__(self,
@@ -1054,7 +1066,7 @@ class _PrecisionRecallAtK(_PostExportMetric):
 
   _target_prediction_keys = Ellipsis  # type: List[Text]
   _labels_key = Ellipsis  # type: Text
-  _metric_tag = Ellipsis  # type: Text
+  _metric_tag = None  # type: Text
 
   def __init__(self,
                cutoffs,
