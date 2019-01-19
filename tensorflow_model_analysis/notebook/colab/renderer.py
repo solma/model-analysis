@@ -18,12 +18,15 @@
 import json
 from IPython import display
 
-from tensorflow_model_analysis.types_compat import Any, Dict, List, Union
+from tensorflow_model_analysis.types_compat import Any, Dict, List, Text, Union
 
 
 def _render_component_in_colab(
-    component_name, data,
-    config):
+    component_name,
+    data,
+    config,
+    url = '/nbextensions/tfma_widget_js/vulcanized_template.html'
+):
   """Renders the specified component in Colab.
 
   Colab requires custom visualization to be rendered in a sandbox so we cannot
@@ -33,6 +36,7 @@ def _render_component_in_colab(
     component_name: The name of the component to render.
     data: A dictionary containing data for visualization.
     config: A dictionary containing the configuration.
+    url: The location of the vulcanized template.
 
   Returns:
     A SlicingMetricsViewer object.
@@ -40,7 +44,7 @@ def _render_component_in_colab(
   display.display(
       display.HTML("""
           <link rel="import"
-          href="/nbextensions/tfma_widget_js/vulcanized_template.html">
+          href="{url}">
           <{component_name} id="component"></{component_name}>
           <script>
           const element = document.getElementById('component');
@@ -50,7 +54,8 @@ def _render_component_in_colab(
           """.format(
               component_name=component_name,
               config=json.dumps(config),
-              data=json.dumps(data))))
+              data=json.dumps(data),
+              url=url)))
 
 
 def render_slicing_metrics(data,
