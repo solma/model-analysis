@@ -14,32 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <!doctype html><script>(function() {var e,f="function"==typeof Object.defineProperties?Object.defineProperty:function(a,b,c){a!=Array.prototype&&a!=Object.prototype&&(a[b]=c.value)},g="undefined"!=typeof window&&window===this?this:"undefined"!=typeof global&&null!=global?global:this;function m(a,b){if(b){var c=g;a=a.split(".");for(var d=0;d<a.length-1;d++){var h=a[d];h in c||(c[h]={});c=c[h]}a=a[a.length-1];d=c[a];b=b(d);b!=d&&null!=b&&f(c,a,{configurable:!0,writable:!0,value:b})}}
-var n="function"==typeof Object.assign?Object.assign:function(a,b){for(var c=1;c<arguments.length;c++){var d=arguments[c];if(d)for(var h in d)Object.prototype.hasOwnProperty.call(d,h)&&(a[h]=d[h])}return a};m("Object.assign",function(a){return a||n});var q=this;function r(a){return void 0!==a}function u(a){return"string"==typeof a}
-function v(a,b){a=a.split(".");var c=q;a[0]in c||"undefined"==typeof c.execScript||c.execScript("var "+a[0]);for(var d;a.length&&(d=a.shift());)!a.length&&r(b)?c[d]=b:c[d]&&c[d]!==Object.prototype[d]?c=c[d]:c=c[d]={}};v("tfma.Event.CHANGE","change");v("tfma.Event.CLEAR_SELECTION","clear-selection");v("tfma.Event.DOUBLE_CLICK","dblclick");v("tfma.Event.IMMEDIATE_VALUE_CHANGE","immediate-value-change");v("tfma.Event.KEYUP","keyup");v("tfma.Event.RELOAD_PLOT_DATA","reload-plot-data");v("tfma.Event.SELECT","select");v("tfma.Event.UPDATE_FOCUS_RANGE","update-focus-range");v("tfma.Column.TOTAL_EXAMPLE_COUNT","totalExampleCount");v("tfma.FLOATING_POINT_PRECISION",5);v("tfma.MetricValueFormat.INT","int");
-v("tfma.MetricValueFormat.INT64","int64");v("tfma.MetricValueFormat.FLOAT","float");v("tfma.MetricValueFormat.ROW_ID","rowId");v("tfma.PlotDataFieldNames.CALIBRATION_BUCKETS","buckets");v("tfma.PlotDataFieldNames.CALIBRATION_DATA","bucketByRefinedPrediction");v("tfma.PlotDataFieldNames.CONFUSION_MATRICES","matrices");v("tfma.PlotDataFieldNames.MACRO_PRECISION_RECALL_CURVE_DATA","macroValuesByThreshold");v("tfma.PlotDataFieldNames.MICRO_PRECISION_RECALL_CURVE_DATA","microValuesByThreshold");
-v("tfma.PlotDataFieldNames.PRECISION_RECALL_CURVE_DATA","binaryClassificationByThreshold");v("tfma.PlotDataFieldNames.WEIGHTED_PRECISION_RECALL_CURVE_DATA","weightedValuesByThreshold");v("tfma.PlotFit.PERFECT","perfect");v("tfma.PlotFit.LEAST_SQUARE","leastSquare");v("tfma.PlotHighlight.ERROR","error");v("tfma.PlotHighlight.WEIGHTS","weights");v("tfma.PlotScale.LINEAR","linear");v("tfma.PlotScale.LOG","log");v("tfma.PlotTypes.CALIBRATION_PLOT","calibrationPlot");
-v("tfma.PlotTypes.MACRO_PRECISION_RECALL_CURVE","macroPrecisionRecallCurve");v("tfma.PlotTypes.MICRO_PRECISION_RECALL_CURVE","microPrecisionRecallCurve");v("tfma.PlotTypes.PREDICTION_DISTRIBUTION","predictionDistribution");v("tfma.PlotTypes.PRECISION_RECALL_CURVE","precisionRecallCurve");v("tfma.PlotTypes.ROC_CURVE","rocCurve");v("tfma.PlotTypes.WEIGHTED_PRECISION_RECALL_CURVE","weightedPrecisionRecallCurve");v("tfma.PlotDataDisplay.EXAMPLES_MAX_STEP",10);var w=/&/g,x=/</g,y=/>/g,z=/"/g,aa=/'/g,ba=/\x00/g,ca=/[\x00&<>"']/;function A(a){a?(ca.test(a)&&(-1!=a.indexOf("&")&&(a=a.replace(w,"&amp;")),-1!=a.indexOf("<")&&(a=a.replace(x,"&lt;")),-1!=a.indexOf(">")&&(a=a.replace(y,"&gt;")),-1!=a.indexOf('"')&&(a=a.replace(z,"&quot;")),-1!=a.indexOf("'")&&(a=a.replace(aa,"&#39;")),-1!=a.indexOf("\x00")&&(a=a.replace(ba,"&#0;"))),a='data="'+a+'"'):a="";return a}function B(a){return{f:0===a?"0":C(a),v:a}}
-function D(a){var b=parseInt(a,10);if(b.toString()==a)return b;a=a.split(a.lastIndexOf("_")>a.lastIndexOf(":")?"_":":");return 1<a.length?D(a[a.length-1]):NaN}function E(a){return{f:a,v:a}}function F(a){var b=a.value;return{f:"<tfma-bounded-value value="+C(b)+" lower-bound="+C(a.lowerBound)+" upper-bound="+C(a.upperBound)+"></tfma-bounded-value>",v:b}}function C(a){return a&&.01>Math.abs(a)?a.toExponential(4):a.toFixed(5)}function da(a,b){return(a.cutoff||0)-(b.cutoff||0)}var G={},H=[];
-function I(a,b,c){G[a]||(G[a]=b,H.push({type:a,check:c}))}function J(a){if(null!=a){for(var b="unknown",c=void 0,d=0;"unknown"==b&&(c=H[d]);d++)c.check(a)&&(b=c.type);return(b=G[b])?b(a):{f:"Unsupported: "+JSON.stringify(a),v:0}}return{f:"n/a",v:0}}function K(a){return!!a&&r(a.lowerBound)&&r(a.upperBound)&&r(a.value)}function L(a){return!!a&&r(a.numerator)&&r(a.denominator)&&r(a.ratio)}function M(a,b){return Array.isArray(a)&&a.length&&a.reduce(function(a,d){return a&&b(d)},!0)}
-I("float",B,function(a){return"number"==typeof a});I("boundedValue",F,K);I("string",E,u);I("MultiClassConfusionMatrix",function(a){return{f:"<tfma-multi-class-confusion-matrix "+A(JSON.stringify(a))+"></tfma-multi-class-confusion-matrix>",v:0}},function(a){return M(a&&a.entries||[],function(a){return a.actualClass&&a.predictedClass})});
-I("valueAtCutoffs",function(a){var b=a.values;b.sort(da);return{f:"<tfma-value-at-cutoffs "+A(JSON.stringify(a))+"></tfma-value-at-cutoffs>",v:b[0].value}},function(a){return a&&a.values&&M(a.values,function(a){return null!=a.cutoff})});
-I("confusionMatrixAtThresholds",function(a){return{f:"<tfma-confusion-matrix-at-thresholds "+A(JSON.stringify(a))+"></tfma-confusion-matrix-at-thresholds>",v:a.matrices[0].precision}},function(a){return a&&a.matrices&&M(a.matrices,function(a){return null!=a.falseNegatives&&null!=a.falsePositives&&null!=a.precision&&null!=a.recall&&null!=a.threshold&&null!=a.trueNegatives&&null!=a.truePositives})});I("ratioValue",function(a){a=a.ratio;return K(a)?F(a):B(parseFloat(a.value))},L);var N={};
-function O(a,b){N[a]||(N[a]=b)}O("rowId",function(a){var b=D(a);return{f:a,v:isNaN(b)?a:b}});O("int",function(a){return{f:""+a,v:a}});O("float",B);O("int64",function(a){var b="<tfma-int64 "+A(a)+"></tfma-int64>",c="-"==a.charAt(0);a=c?a.substring(1):a;return{f:b,v:(c?"-":"")+"000000000000000000000".substring(0,20-a.length)+a}});O("html",E);O("string",E);
-v("tfma.CellRenderer.renderValueWithFormatOverride",function(a,b,c){if(null!=a)if(b&&c)try{return N[c.type](b.applyOverride(a,c))}catch(d){return{f:"Unsupported: "+JSON.stringify({override:c,value:a}),v:0}}else return J(a);else return{f:"n/a",v:0}});v("tfma.CellRenderer.parseRowId",D);v("tfma.CellRenderer.registerRenderer",I);v("tfma.CellRenderer.registerOverrideRenderer",O);v("tfma.CellRenderer.isBoundedValue",K);v("tfma.CellRenderer.isRatioValue",L);function P(a,b){var c=this;this.c=a;this.a=b;this.g={};this.m=[];this.b={};this.a.forEach(function(a){var b=a.getFeatureString();c.b[b]=a;c.g[b]={}})}e=P.prototype;e.getFeatureDataSeriesKeys=function(){return this.b?Object.keys(this.b):[]};e.getMetricIndex=function(a){return this.c.indexOf(a)};e.getMetrics=function(){return this.c};e.getSeriesList=function(){return this.a};e.filter=function(a){return new P(this.c,this.a.filter(a))};
+var n="function"==typeof Object.assign?Object.assign:function(a,b){for(var c=1;c<arguments.length;c++){var d=arguments[c];if(d)for(var h in d)Object.prototype.hasOwnProperty.call(d,h)&&(a[h]=d[h])}return a};m("Object.assign",function(a){return a||n});var q=this;function r(a){return void 0!==a}function u(a){return"string"==typeof a}function v(a){return"number"==typeof a}
+function w(a,b){a=a.split(".");var c=q;a[0]in c||"undefined"==typeof c.execScript||c.execScript("var "+a[0]);for(var d;a.length&&(d=a.shift());)!a.length&&r(b)?c[d]=b:c[d]&&c[d]!==Object.prototype[d]?c=c[d]:c=c[d]={}};w("tfma.Event.CHANGE","change");w("tfma.Event.CLEAR_SELECTION","clear-selection");w("tfma.Event.DOUBLE_CLICK","dblclick");w("tfma.Event.IMMEDIATE_VALUE_CHANGE","immediate-value-change");w("tfma.Event.KEYUP","keyup");w("tfma.Event.RELOAD_PLOT_DATA","reload-plot-data");w("tfma.Event.SELECT","select");w("tfma.Event.UPDATE_FOCUS_RANGE","update-focus-range");w("tfma.Column.TOTAL_EXAMPLE_COUNT","totalExampleCount");w("tfma.FLOATING_POINT_PRECISION",5);w("tfma.MetricValueFormat.INT","int");
+w("tfma.MetricValueFormat.INT64","int64");w("tfma.MetricValueFormat.FLOAT","float");w("tfma.MetricValueFormat.ROW_ID","rowId");w("tfma.PlotDataFieldNames.CALIBRATION_BUCKETS","buckets");w("tfma.PlotDataFieldNames.CALIBRATION_DATA","bucketByRefinedPrediction");w("tfma.PlotDataFieldNames.CONFUSION_MATRICES","matrices");w("tfma.PlotDataFieldNames.MACRO_PRECISION_RECALL_CURVE_DATA","macroValuesByThreshold");w("tfma.PlotDataFieldNames.MICRO_PRECISION_RECALL_CURVE_DATA","microValuesByThreshold");
+w("tfma.PlotDataFieldNames.PRECISION_RECALL_CURVE_DATA","binaryClassificationByThreshold");w("tfma.PlotDataFieldNames.WEIGHTED_PRECISION_RECALL_CURVE_DATA","weightedValuesByThreshold");w("tfma.PlotFit.PERFECT","perfect");w("tfma.PlotFit.LEAST_SQUARE","leastSquare");w("tfma.PlotHighlight.ERROR","error");w("tfma.PlotHighlight.WEIGHTS","weights");w("tfma.PlotScale.LINEAR","linear");w("tfma.PlotScale.LOG","log");w("tfma.PlotTypes.CALIBRATION_PLOT","calibrationPlot");
+w("tfma.PlotTypes.MACRO_PRECISION_RECALL_CURVE","macroPrecisionRecallCurve");w("tfma.PlotTypes.MICRO_PRECISION_RECALL_CURVE","microPrecisionRecallCurve");w("tfma.PlotTypes.PREDICTION_DISTRIBUTION","predictionDistribution");w("tfma.PlotTypes.PRECISION_RECALL_CURVE","precisionRecallCurve");w("tfma.PlotTypes.ROC_CURVE","rocCurve");w("tfma.PlotTypes.WEIGHTED_PRECISION_RECALL_CURVE","weightedPrecisionRecallCurve");w("tfma.PlotDataDisplay.EXAMPLES_MAX_STEP",10);var x=/&/g,y=/</g,aa=/>/g,ba=/"/g,ca=/'/g,da=/\x00/g,ea=/[\x00&<>"']/;function z(a,b){var c="bounded"+b.charAt(0).toUpperCase()+b.slice(1);c=a[c];return(r(c)?c.value:a[b])||0}function A(a){a?(ea.test(a)&&(-1!=a.indexOf("&")&&(a=a.replace(x,"&amp;")),-1!=a.indexOf("<")&&(a=a.replace(y,"&lt;")),-1!=a.indexOf(">")&&(a=a.replace(aa,"&gt;")),-1!=a.indexOf('"')&&(a=a.replace(ba,"&quot;")),-1!=a.indexOf("'")&&(a=a.replace(ca,"&#39;")),-1!=a.indexOf("\x00")&&(a=a.replace(da,"&#0;"))),a='data="'+a+'"'):a="";return a}function B(a){return{f:0===a?"0":C(a),v:a}}
+function D(a){var b=parseInt(a,10);if(b.toString()==a)return b;a=a.split(a.lastIndexOf("_")>a.lastIndexOf(":")?"_":":");return 1<a.length?D(a[a.length-1]):NaN}function E(a){return{f:a,v:a}}function F(a){var b=a.value;return{f:"<tfma-bounded-value value="+C(b)+" lower-bound="+C(a.lowerBound)+" upper-bound="+C(a.upperBound)+"></tfma-bounded-value>",v:b}}function C(a){return a&&.01>Math.abs(a)?a.toExponential(4):a.toFixed(5)}function fa(a,b){return(a.cutoff||0)-(b.cutoff||0)}var G={},H=[];
+function I(a,b,c){G[a]||(G[a]=b,H.push({type:a,check:c}))}function J(a){if(null!=a){for(var b="unknown",c=void 0,d=0;"unknown"==b&&(c=H[d]);d++)c.check(a)&&(b=c.type);return(b=G[b])?b(a):{f:"Unsupported: "+JSON.stringify(a),v:0}}return{f:"n/a",v:0}}function K(a){return!!a&&r(a.lowerBound)&&r(a.upperBound)&&r(a.value)}function L(a){return!!a&&r(a.numerator)&&r(a.denominator)&&r(a.ratio)}function M(a,b){return Array.isArray(a)&&a.length&&a.reduce(function(a,d){return a&&b(d)},!0)}I("float",B,v);
+I("scalarInValue",function(a){return B(a.value)},function(a){var b=a.value;return r(b)&&v(b)&&1===Object.keys(a).length});I("boundedValue",F,K);I("string",E,u);I("MultiClassConfusionMatrix",function(a){return{f:"<tfma-multi-class-confusion-matrix "+A(JSON.stringify(a))+"></tfma-multi-class-confusion-matrix>",v:0}},function(a){return M(a&&a.entries||[],function(a){return a.actualClass&&a.predictedClass})});
+I("valueAtCutoffs",function(a){var b=a.values;b.sort(fa);a="<tfma-value-at-cutoffs "+A(JSON.stringify(a))+"></tfma-value-at-cutoffs>";b=z(b[0],"value");return{f:a,v:b}},function(a){return a&&a.values&&M(a.values,function(a){return null!=a.cutoff})});
+I("confusionMatrixAtThresholds",function(a){var b="<tfma-confusion-matrix-at-thresholds "+A(JSON.stringify(a))+"></tfma-confusion-matrix-at-thresholds>";a=z(a.matrices[0],"precision");return{f:b,v:a}},function(a){return a&&a.matrices&&M(a.matrices,function(a){return null!=a.threshold&&(null!=a.falseNegatives&&null!=a.falsePositives&&null!=a.precision&&null!=a.recall&&null!=a.trueNegatives&&null!=a.truePositives||null!=a.boundedFalseNegatives&&null!=a.boundedFalsePositives&&null!=a.boundedPrecision&&
+null!=a.boundedRecall&&null!=a.boundedTrueNegatives&&null!=a.boundedTruePositives)})});I("ratioValue",function(a){a=a.ratio;return K(a)?F(a):B(parseFloat(a.value))},L);var N={};function O(a,b){N[a]||(N[a]=b)}O("rowId",function(a){var b=D(a);return{f:a,v:isNaN(b)?a:b}});O("int",function(a){return{f:""+a,v:a}});O("float",B);
+O("int64",function(a){var b="<tfma-int64 "+A(a)+"></tfma-int64>",c="-"==a.charAt(0);a=c?a.substring(1):a;return{f:b,v:(c?"-":"")+"000000000000000000000".substring(0,20-a.length)+a}});O("html",E);O("string",E);w("tfma.CellRenderer.renderValueWithFormatOverride",function(a,b,c){if(null!=a)if(b&&c)try{return N[c.type](b.applyOverride(a,c))}catch(d){return{f:"Unsupported: "+JSON.stringify({override:c,value:a}),v:0}}else return J(a);else return{f:"n/a",v:0}});w("tfma.CellRenderer.parseRowId",D);
+w("tfma.CellRenderer.registerRenderer",I);w("tfma.CellRenderer.registerOverrideRenderer",O);w("tfma.CellRenderer.isBoundedValue",K);w("tfma.CellRenderer.isRatioValue",L);w("tfma.CellRenderer.extractFloatValue",z);function P(a,b){var c=this;this.c=a;this.a=b;this.g={};this.m=[];this.b={};this.a.forEach(function(a){var b=a.getFeatureString();c.b[b]=a;c.g[b]={}})}e=P.prototype;e.getFeatureDataSeriesKeys=function(){return this.b?Object.keys(this.b):[]};e.getMetricIndex=function(a){return this.c.indexOf(a)};e.getMetrics=function(){return this.c};e.getSeriesList=function(){return this.a};e.filter=function(a){return new P(this.c,this.a.filter(a))};
 e.getColumnRange=function(a){var b=this;return this.a.reduce(function(c,d){d=d.getFeatureString();d=b.getMetricValue(d,a);return isNaN(d)||null==d?c:{min:Math.min(c.min,d),max:Math.max(c.max,d)}},{min:Infinity,max:-Infinity})};e.getFeatureId=function(a){var b=this.b[a];return b&&b.getFeatureIdForMatching()||a};e.getAllMetricValues=function(a){return(a=this.b[a])?a.c:[]};
 e.getMetricValue=function(a,b){if(!r(this.g[a][b])){var c=this.getMetricIndex(b);c=this.getAllMetricValues(a)[c];c=null!=c?c:NaN;var d=typeof c;"object"==d&&null!=c||"function"==d?c=J(c).v:u(c)&&(c=parseFloat(c));this.g[a][b]=c}return this.g[a][b]};e.getFeatures=function(){this.m.length||(this.m=this.a.map(function(a){return a.getFeatureString()}));return this.m};e.getDataTable=function(){var a=this;return this.a.map(function(b){b=b.getFeatureString();var c=a.getAllMetricValues(b);return[b].concat(c)})};
 e.i=function(){return!this.a.length||!this.c.length};e.equals=function(a){var b=a.getSeriesList();if(this.c!==a.getMetrics()||this.a.length!=b.length)return!1;for(a=0;a<this.a.length;a++)if(this.a[a]!==b[a])return!1;return!0};e.readyToRender=function(){return!this.i()};e.getHeader=function(a){return["feature"].concat(a)};e.getFormats=function(a){a=Object.assign({},a);a.feature={type:"rowId"};return a};e.applyOverride=function(a,b){return(b=b.transform)?b(a):a};P.prototype.applyOverride=P.prototype.applyOverride;
 P.prototype.getFormats=P.prototype.getFormats;P.prototype.getHeader=P.prototype.getHeader;P.prototype.readyToRender=P.prototype.readyToRender;P.prototype.equals=P.prototype.equals;P.prototype.getDataTable=P.prototype.getDataTable;P.prototype.getFeatures=P.prototype.getFeatures;P.prototype.getMetricValue=P.prototype.getMetricValue;P.prototype.getAllMetricValues=P.prototype.getAllMetricValues;P.prototype.getFeatureId=P.prototype.getFeatureId;P.prototype.getColumnRange=P.prototype.getColumnRange;
-P.prototype.filter=P.prototype.filter;P.prototype.getSeriesList=P.prototype.getSeriesList;P.prototype.getMetrics=P.prototype.getMetrics;P.prototype.getMetricIndex=P.prototype.getMetricIndex;P.prototype.getFeatureDataSeriesKeys=P.prototype.getFeatureDataSeriesKeys;function ea(a,b,c){a=a.map(function(a){return"calibration"==a&&r(b.averageLabel)&&r(b.averageRefinedPrediction)?b.averageRefinedPrediction/b.averageLabel:b[a]});return new Q(c,a)}
-function R(a,b){b=b.map(function(b){return ea(a,b.metrics,b.slice||"")});return new P(a,b)}function fa(a){return Object.keys(a).reduce(function(b,c){var d=a[c],h=Object.keys(d);b[c]=d[h[0]];return b},{})}function Q(a,b){this.a=a;this.b=D(a);this.g=isNaN(this.b)?this.a:this.b;this.c=b}Q.prototype.getFeatureString=function(){return this.a};Q.prototype.getFeatureIdForMatching=function(){return this.g};Q.prototype.s=function(){return this.c};Q.prototype.getMetricValuesList=Q.prototype.s;
-Q.prototype.getFeatureIdForMatching=Q.prototype.getFeatureIdForMatching;Q.prototype.getFeatureString=Q.prototype.getFeatureString;v("tfma.Data.build",R);v("tfma.Data.flattenMetrics",function(a,b){a.forEach(function(a){a[b]=fa(a[b])})});v("tfma.Data.getAvailableMetrics",function(a,b){var c={};a.forEach(function(a){a.forEach(function(a){a=a[b]||{};for(var d in a)c[d]=!0})});a=Object.keys(c);c.averageRefinedPrediction&&c.averageLabel&&a.push("calibration");a.sort();return a});
-v("tfma.Data.preprocessMaybeAddPlotData",function(a,b,c){var d=[{type:"calibrationPlot",l:"predictionDistribution"},{type:"precisionRecallCurve",l:"rocCurve"},{type:"macroPrecisionRecallCurve"},{type:"microPrecisionRecallCurve"},{type:"weightedPrecisionRecallCurve"}];a.forEach(function(a){if(a[b]&&a.plot){var h=[];d.forEach(function(b){a.plot[b.type]&&(h.push(b.type),b.l&&h.push(b.l))});if(h.length){var l=c(a);l.types=h;a[b].plots=l}}})});function ha(a){var b=a.length;if(2>b||1E8<b)return{h:NaN,j:NaN};var c=0,d=0;a.forEach(function(a){c+=a.x;d+=a.y});var h=c/b,k=d/b,l=0,p=0,t;a.forEach(function(a){t=a.x-h;l+=t*(a.y-k);p+=t*t});a=l/p;return{j:a,h:k-a*h}};var ia={j:1,h:0},ja=Math.log(10),S=Math.pow(10,-5);function ka(a,b,c){var d=0,h=0,k=0,l=b,p=[];a.forEach(function(a){if(null!=a.totalWeightedLabel&&null!=a.totalWeightedRefinedPrediction&&null!=a.numWeightedExamples&&null!=a.upperThresholdExclusive&&(h+=a.totalWeightedLabel,k+=a.totalWeightedRefinedPrediction,d+=a.numWeightedExamples,a.upperThresholdExclusive>=l)){if(0<d){a=k/d;var t=h/d;p.push({x:c?Math.max(S,a):a,y:c?Math.max(S,t):t,o:d});k=h=d=0}l+=b}});return p}
-function T(a){return a<S?-5:Math.log(a)/ja}v("tfma.BucketsWrapper.getCalibrationPlotData",function(a,b,c,d,h,k,l){a=ka(a,k||0,"log"==c);var p="perfect"==b?ia:ha(a);a.forEach(function(a){l.push(["",a.x,a.y,"weights"==d?T(a.o):Math.abs(a.y-p.j*a.x-p.h),"weights"==h?T(a.o):Math.abs(a.y-p.j*a.x-p.h)])})});function U(a,b,c){this.c=b;c||(c=V=V||new W);this.a=c;this.b=this.a.sortEvalRuns(a,b)}e=U.prototype;
+P.prototype.filter=P.prototype.filter;P.prototype.getSeriesList=P.prototype.getSeriesList;P.prototype.getMetrics=P.prototype.getMetrics;P.prototype.getMetricIndex=P.prototype.getMetricIndex;P.prototype.getFeatureDataSeriesKeys=P.prototype.getFeatureDataSeriesKeys;function ha(a,b,c){a=a.map(function(a){return"calibration"==a&&r(b.averageLabel)&&r(b.averageRefinedPrediction)?b.averageRefinedPrediction/b.averageLabel:b[a]});return new Q(c,a)}
+function R(a,b){b=b.map(function(b){return ha(a,b.metrics,b.slice||"")});return new P(a,b)}function ia(a){return Object.keys(a).reduce(function(b,c){var d=a[c],h=Object.keys(d);b[c]=d[h[0]];return b},{})}function Q(a,b){this.a=a;this.b=D(a);this.g=isNaN(this.b)?this.a:this.b;this.c=b}Q.prototype.getFeatureString=function(){return this.a};Q.prototype.getFeatureIdForMatching=function(){return this.g};Q.prototype.s=function(){return this.c};Q.prototype.getMetricValuesList=Q.prototype.s;
+Q.prototype.getFeatureIdForMatching=Q.prototype.getFeatureIdForMatching;Q.prototype.getFeatureString=Q.prototype.getFeatureString;w("tfma.Data.build",R);w("tfma.Data.flattenMetrics",function(a,b){a.forEach(function(a){a[b]=ia(a[b])})});w("tfma.Data.getAvailableMetrics",function(a,b){var c={};a.forEach(function(a){a.forEach(function(a){a=a[b]||{};for(var d in a)c[d]=!0})});a=Object.keys(c);c.averageRefinedPrediction&&c.averageLabel&&a.push("calibration");a.sort();return a});
+w("tfma.Data.preprocessMaybeAddPlotData",function(a,b,c){var d=[{type:"calibrationPlot",l:"predictionDistribution"},{type:"precisionRecallCurve",l:"rocCurve"},{type:"macroPrecisionRecallCurve"},{type:"microPrecisionRecallCurve"},{type:"weightedPrecisionRecallCurve"}];a.forEach(function(a){if(a[b]&&a.plot){var h=[];d.forEach(function(b){a.plot[b.type]&&(h.push(b.type),b.l&&h.push(b.l))});if(h.length){var l=c(a);l.types=h;a[b].plots=l}}})});function ja(a){var b=a.length;if(2>b||1E8<b)return{h:NaN,j:NaN};var c=0,d=0;a.forEach(function(a){c+=a.x;d+=a.y});var h=c/b,k=d/b,l=0,p=0,t;a.forEach(function(a){t=a.x-h;l+=t*(a.y-k);p+=t*t});a=l/p;return{j:a,h:k-a*h}};var ka={j:1,h:0},la=Math.log(10),S=Math.pow(10,-5);function ma(a,b,c){var d=0,h=0,k=0,l=b,p=[];a.forEach(function(a){if(null!=a.totalWeightedLabel&&null!=a.totalWeightedRefinedPrediction&&null!=a.numWeightedExamples&&null!=a.upperThresholdExclusive&&(h+=a.totalWeightedLabel,k+=a.totalWeightedRefinedPrediction,d+=a.numWeightedExamples,a.upperThresholdExclusive>=l)){if(0<d){a=k/d;var t=h/d;p.push({x:c?Math.max(S,a):a,y:c?Math.max(S,t):t,o:d});k=h=d=0}l+=b}});return p}
+function T(a){return a<S?-5:Math.log(a)/la}w("tfma.BucketsWrapper.getCalibrationPlotData",function(a,b,c,d,h,k,l){a=ma(a,k||0,"log"==c);var p="perfect"==b?ka:ja(a);a.forEach(function(a){l.push(["",a.x,a.y,"weights"==d?T(a.o):Math.abs(a.y-p.j*a.x-p.h),"weights"==h?T(a.o):Math.abs(a.y-p.j*a.x-p.h)])})});function U(a,b,c){this.c=b;c||(c=V=V||new W);this.a=c;this.b=this.a.sortEvalRuns(a,b)}e=U.prototype;
 e.getLineChartData=function(a){var b=this,c=this.b.length;return this.b.map(function(d,h){var k=d.config;d=d.data.getMetricValue("",a);h=c-h;var l=b.c?b.a.getModelId(k):b.a.getDataVersion(k);return[{v:"number"==typeof l?l:h,f:b.a.getModelHeader()+" "+b.a.getModelDisplayText(k)+" at "+b.a.getDataHeader()+" "+b.a.getDataDisplayText(k)},b.a.getModelId(k),b.a.getModelHeader()+": "+b.a.getModelDisplayText(k),{v:d,f:d}]})};
 e.getDataTable=function(){var a=this,b=this.a;return this.b.map(function(c){var d=c.data.getAllMetricValues(""),h=c.config;c=b.getModelDisplayText(h);h=b.getDataDisplayText(h);return[a.c?c:h,a.c?h:c].concat(d)})};e.getMetrics=function(){var a=this,b={};this.b.forEach(function(a){a.data.getMetrics().forEach(function(a){a in b?b[a]++:b[a]=1})});return Object.keys(b).filter(function(c){return b[c]==a.b.length})};e.getModelIds=function(){var a=this;return this.b.map(function(b){return a.a.getModelId(b.config)})};
 e.i=function(){return!this.b.length||this.b[0].data.i()};e.readyToRender=function(){return!this.i()};e.getHeader=function(a){var b=this.a.getModelHeader(),c=this.a.getDataHeader();return[this.c?b:c,this.c?c:b].concat(a)};e.getFormats=function(a){return this.a.getFormats(a)};e.applyOverride=function(a,b){return(b=b.transform)?b(a):a};e.getEvalConfig=function(a){return(a=(a=this.b[a])&&a.config)?{model:this.a.getModelId(a),data:this.a.getDataVersion(a)}:null};e.getModelColumnName=function(){return this.a.getModelHeader()};
 e.getDataColumnName=function(){return this.a.getDataHeader()};U.prototype.getMetrics=U.prototype.getMetrics;var V;function W(){}e=W.prototype;e.getFormats=function(a){return a};e.getModelId=function(a){return X(this.getModelDisplayText(a))};e.getModelDisplayText=function(a){return a.modelIdentifier||"Model ID not set"};e.getDataVersion=function(a){return X(this.getDataDisplayText(a))};e.getDataDisplayText=function(a){return a.dataIdentifier||"Data ID not set"};
-e.sortEvalRuns=function(a,b){return a.sort(function(a,d){a=a.config;d=d.config;return b?Y(a.modelIdentifier,d.modelIdentifier)||Y(a.dataIdentifier,d.dataIdentifier):Y(a.dataIdentifier,d.dataIdentifier)||Y(a.modelIdentifier,d.modelIdentifier)})};e.getModelHeader=function(){return"Model"};e.getDataHeader=function(){return"Data"};function X(a){var b=parseFloat(a);if(isNaN(b)||a!=b)return a;a=Math.floor(b);return b==a?a:b}function Y(a,b){a=X(a);b=X(b);return a==b?0:a>b?-1:1}v("tfma.SeriesData",U);function Z(a,b){this.a=R(a,b)}Z.prototype.applyThreshold=function(a,b){var c=this;return this.a.filter(function(d){return c.a.getMetricValue(d.getFeatureString(),a)>=b})};Z.prototype.getColumnSteppingInfo=function(a){a=this.a.getColumnRange(a);var b=Math.min(10,Math.ceil(a.max/100));return{max:Math.ceil((a.max+1)/b)*b,step:b}};Z.prototype.getFeatures=function(){return this.a.getFeatures()};Z.prototype.getTableDataFromDataset=function(a){return a};v("tfma.SingleSeriesGraphData",Z);})()
+e.sortEvalRuns=function(a,b){return a.sort(function(a,d){a=a.config;d=d.config;return b?Y(a.modelIdentifier,d.modelIdentifier)||Y(a.dataIdentifier,d.dataIdentifier):Y(a.dataIdentifier,d.dataIdentifier)||Y(a.modelIdentifier,d.modelIdentifier)})};e.getModelHeader=function(){return"Model"};e.getDataHeader=function(){return"Data"};function X(a){var b=parseFloat(a);if(isNaN(b)||a!=b)return a;a=Math.floor(b);return b==a?a:b}function Y(a,b){a=X(a);b=X(b);return a==b?0:a>b?-1:1}w("tfma.SeriesData",U);function Z(a,b){this.a=R(a,b)}Z.prototype.applyThreshold=function(a,b){var c=this;return this.a.filter(function(d){return c.a.getMetricValue(d.getFeatureString(),a)>=b})};Z.prototype.getColumnSteppingInfo=function(a){a=this.a.getColumnRange(a);var b=Math.min(10,Math.ceil(a.max/100));return{max:Math.ceil((a.max+1)/b)*b,step:b}};Z.prototype.getFeatures=function(){return this.a.getFeatures()};Z.prototype.getTableDataFromDataset=function(a){return a};w("tfma.SingleSeriesGraphData",Z);})()
 </script>
 <script>/*
 
@@ -1369,8 +1370,8 @@ computeOptions_:function(a,b,c,d){var e={title:"Calibration Plot",hAxis:{title:"
     <google-chart type="line" data="[[plotData_]]" options="[[options_]]"></google-chart>
   </template>
   <script>//~~WEBPATH~~/tfma-precision-recall-curve/tfma-precision-recall-curve.js
-Polymer({is:"tfma-precision-recall-curve",properties:{data:{type:Array},options_:{type:Object,value:{legend:{position:"bottom"},hAxis:{title:"Recall"},vAxis:{title:"Precision"},series:{0:{visibleInLegend:!1}},explorer:{actions:["dragToPan","scrollToZoom","rightClickToReset"]}}},plotData_:{type:Array,computed:"computePlotData_(data)"}},computePlotData_:function(a){var b=[["Recall","Precision",{type:"string",role:"tooltip"}]];a.forEach(function(a){var c=parseFloat(a.recall||0),e=parseFloat(a.precision||
-0);b.push([c,e,"Prediction threshold: "+Math.max(0,Math.min(1,a.threshold||0)).toFixed(5)+"\nRecall: "+c.toFixed(5)+"\nPrecision: "+e.toFixed(5)])});return b}});
+Polymer({is:"tfma-precision-recall-curve",properties:{data:{type:Array},options_:{type:Object,value:{legend:{position:"bottom"},hAxis:{title:"Recall"},vAxis:{title:"Precision"},series:{0:{visibleInLegend:!1}},explorer:{actions:["dragToPan","scrollToZoom","rightClickToReset"]}}},plotData_:{type:Array,computed:"computePlotData_(data)"}},computePlotData_:function(a){var b=[["Recall","Precision",{type:"string",role:"tooltip"}]];a.forEach(function(a){var c=Math.max(0,Math.min(1,a.threshold||0)),e=parseFloat(tfma.CellRenderer.extractFloatValue(a,
+"recall")||0);a=parseFloat(tfma.CellRenderer.extractFloatValue(a,"precision")||0);b.push([e,a,"Prediction threshold: "+c.toFixed(5)+"\nRecall: "+e.toFixed(5)+"\nPrecision: "+a.toFixed(5)])});return b}});
 </script>
 </dom-module>
 
@@ -1395,8 +1396,8 @@ Polymer({is:"tfma-prediction-distribution",properties:{data:{type:Array},bucketS
     <google-chart type="line" data="[[plotData_]]" options="[[options_]]"></google-chart>
   </template>
   <script>//~~WEBPATH~~/tfma-roc-curve/tfma-roc-curve.js
-Polymer({is:"tfma-roc-curve",properties:{data:{type:Array},options_:{type:Object,value:{legend:{position:"bottom"},hAxis:{title:"False Positive Rate"},vAxis:{title:"True Positive Rate"},series:{0:{visibleInLegend:!1}},explorer:{actions:["dragToPan","scrollToZoom","rightClickToReset"]}}},plotData_:{type:Array,computed:"computePlotData_(data)"}},computePlotData_:function(a){var b=[["FPR","TPR",{type:"string",role:"tooltip"}]];a.forEach(function(a){var c=a.truePositives||0;c/=c+(a.falseNegatives||0);
-var e=a.falsePositives||0;e/=(a.trueNegatives||0)+e;b.push([e,c,"Prediction threshold: "+Math.max(0,Math.min(1,a.threshold||0)).toFixed(5)+"\nFPR: "+e.toFixed(5)+"\nTPR: "+c.toFixed(5)])});return b}});
+Polymer({is:"tfma-roc-curve",properties:{data:{type:Array},options_:{type:Object,value:{legend:{position:"bottom"},hAxis:{title:"False Positive Rate"},vAxis:{title:"True Positive Rate"},series:{0:{visibleInLegend:!1}},explorer:{actions:["dragToPan","scrollToZoom","rightClickToReset"]}}},plotData_:{type:Array,computed:"computePlotData_(data)"}},computePlotData_:function(a){var b=[["FPR","TPR",{type:"string",role:"tooltip"}]];a.forEach(function(a){var c=Math.max(0,Math.min(1,a.threshold||0)),e=tfma.CellRenderer.extractFloatValue(a,
+"truePositives"),f=tfma.CellRenderer.extractFloatValue(a,"falseNegatives");e/=e+f;f=tfma.CellRenderer.extractFloatValue(a,"trueNegatives");a=tfma.CellRenderer.extractFloatValue(a,"falsePositives");a/=f+a;b.push([a,e,"Prediction threshold: "+c.toFixed(5)+"\nFPR: "+a.toFixed(5)+"\nTPR: "+e.toFixed(5)])});return b}});
 </script>
 </dom-module>
 
@@ -3784,57 +3785,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
         position: relative;
       }
 
-      :not([v2]) .focused-line {
-        @apply --layout-fit;
-
-        background: var(--paper-input-container-focus-color, var(--primary-color));
-        height: 2px;
-
-        -webkit-transform-origin: center center;
-        transform-origin: center center;
-        -webkit-transform: scale3d(0,1,1);
-        transform: scale3d(0,1,1);
-
-        @apply --paper-input-container-underline-focus;
-      }
-
-      .underline.is-highlighted:not([v2]) .focused-line {
-        -webkit-transform: none;
-        transform: none;
-        -webkit-transition: -webkit-transform 0.25s;
-        transition: transform 0.25s;
-
-        @apply --paper-transition-easing;
-      }
-
-      .underline.is-invalid:not([v2]) .focused-line {
-        background: var(--paper-input-container-invalid-color, var(--error-color));
-        -webkit-transform: none;
-        transform: none;
-        -webkit-transition: -webkit-transform 0.25s;
-        transition: transform 0.25s;
-
-        @apply --paper-transition-easing;
-      }
-
-      :not([v2]) .unfocused-line {
-        @apply --layout-fit;
-
-        background: var(--paper-input-container-color, var(--secondary-text-color));
-        height: 1px;
-
-        @apply --paper-input-container-underline;
-      }
-
-      :host([disabled]) :not([v2]) .unfocused-line {
-        border-bottom: 1px dashed;
-        border-color: var(--paper-input-container-color, var(--secondary-text-color));
-        background: transparent;
-
-        @apply --paper-input-container-underline-disabled;
-      }
-
-      [v2] .focused-line {
+      .focused-line {
         @apply --layout-fit;
         border-bottom:
             var(--paper-input-container-underline-focus-height, 2px)
@@ -3852,7 +3803,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
         @apply --paper-input-container-underline-focus;
       }
 
-      .underline.is-highlighted[v2] .focused-line {
+      .underline.is-highlighted .focused-line {
         -webkit-transform: none;
         transform: none;
         -webkit-transition: -webkit-transform 0.25s;
@@ -3861,7 +3812,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
         @apply --paper-transition-easing;
       }
 
-      .underline.is-invalid[v2] .focused-line {
+      .underline.is-invalid .focused-line {
         border-bottom:
             var(--paper-input-container-underline-focus-height, 2px)
             solid
@@ -3877,7 +3828,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
         @apply --paper-transition-easing;
       }
 
-      [v2] .unfocused-line {
+      .unfocused-line {
         @apply --layout-fit;
         border-bottom:
             var(--paper-input-container-underline-height, 1px)
@@ -3890,7 +3841,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
         @apply --paper-input-container-underline;
       }
 
-      :host([disabled]) [v2] .unfocused-line {
+      :host([disabled]) .unfocused-line {
         border-bottom:
             var(--paper-input-container-underline-height, 1px)
             dashed
@@ -4081,7 +4032,7 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
       <slot name="suffix" id="suffix"></slot>
     </div>
 
-    <div class$="[[_computeUnderlineClass(focused,invalid)]]" v2$="[[useV2Underline]]">
+    <div class$="[[_computeUnderlineClass(focused,invalid)]]">
       <div class="unfocused-line"></div>
       <div class="focused-line"></div>
     </div>
@@ -4093,13 +4044,13 @@ Polymer({is:"paper-input-char-counter",behaviors:[Polymer.PaperInputAddonBehavio
 </dom-module>
 
 <script>//~~WEBPATH~~/paper-input/paper-input-container.html.js
-Polymer({is:"paper-input-container",properties:{noLabelFloat:{type:Boolean,value:!1},alwaysFloatLabel:{type:Boolean,value:!1},attrForValue:{type:String,value:"bind-value"},autoValidate:{type:Boolean,value:!1},invalid:{observer:"_invalidChanged",type:Boolean,value:!1},focused:{readOnly:!0,type:Boolean,value:!1,notify:!0},useV2Underline:{type:Boolean,value:!1},_addons:{type:Array},_inputHasContent:{type:Boolean,value:!1},_inputSelector:{type:String,value:"input,textarea,.paper-input-input"},_boundOnFocus:{type:Function,
-value:function(){return this._onFocus.bind(this)}},_boundOnBlur:{type:Function,value:function(){return this._onBlur.bind(this)}},_boundOnInput:{type:Function,value:function(){return this._onInput.bind(this)}},_boundValueChanged:{type:Function,value:function(){return this._onValueChanged.bind(this)}}},listeners:{"addon-attached":"_onAddonAttached","iron-input-validate":"_onIronInputValidate"},get _valueChangedEvent(){return this.attrForValue+"-changed"},get _propertyForValue(){return Polymer.CaseMap.dashToCamelCase(this.attrForValue)},
-get _inputElement(){return Polymer.dom(this).querySelector(this._inputSelector)},get _inputElementValue(){return this._inputElement[this._propertyForValue]||this._inputElement.value},ready:function(){this._addons||(this._addons=[]);this.addEventListener("focus",this._boundOnFocus,!0);this.addEventListener("blur",this._boundOnBlur,!0)},attached:function(){this.attrForValue?this._inputElement.addEventListener(this._valueChangedEvent,this._boundValueChanged):this.addEventListener("input",this._onInput);
-""!=this._inputElementValue?this._handleValueAndAutoValidate(this._inputElement):this._handleValue(this._inputElement)},_onAddonAttached:function(a){this._addons||(this._addons=[]);a=a.target;-1===this._addons.indexOf(a)&&(this._addons.push(a),this.isAttached&&this._handleValue(this._inputElement))},_onFocus:function(){this._setFocused(!0)},_onBlur:function(){this._setFocused(!1);this._handleValueAndAutoValidate(this._inputElement)},_onInput:function(a){this._handleValueAndAutoValidate(a.target)},
-_onValueChanged:function(a){this._handleValueAndAutoValidate(a.target)},_handleValue:function(a){var b=this._inputElementValue;b||0===b||"number"===a.type&&!a.checkValidity()?this._inputHasContent=!0:this._inputHasContent=!1;this.updateAddons({inputElement:a,value:b,invalid:this.invalid})},_handleValueAndAutoValidate:function(a){this.autoValidate&&(this.invalid=!(a.validate?a.validate(this._inputElementValue):a.checkValidity()));this._handleValue(a)},_onIronInputValidate:function(){this.invalid=this._inputElement.invalid},
-_invalidChanged:function(){this._addons&&this.updateAddons({invalid:this.invalid})},updateAddons:function(a){for(var b,c=0;b=this._addons[c];c++)b.update(a)},_computeInputContentClass:function(a,b,c,d,e){var f="input-content";a?e&&(f+=" label-is-hidden"):(a=this.querySelector("label"),b||e?(f+=" label-is-floating",this.$.labelAndInputContainer.style.position="static",d?f+=" is-invalid":c&&(f+=" label-is-highlighted")):a&&(this.$.labelAndInputContainer.style.position="relative"));c&&(f+=" focused");
-return f},_computeUnderlineClass:function(a,b){var c="underline";b?c+=" is-invalid":a&&(c+=" is-highlighted");return c},_computeAddOnContentClass:function(a,b){var c="add-on-content";b?c+=" is-invalid":a&&(c+=" is-highlighted");return c}});
+Polymer({is:"paper-input-container",properties:{noLabelFloat:{type:Boolean,value:!1},alwaysFloatLabel:{type:Boolean,value:!1},attrForValue:{type:String,value:"bind-value"},autoValidate:{type:Boolean,value:!1},invalid:{observer:"_invalidChanged",type:Boolean,value:!1},focused:{readOnly:!0,type:Boolean,value:!1,notify:!0},_addons:{type:Array},_inputHasContent:{type:Boolean,value:!1},_inputSelector:{type:String,value:"input,textarea,.paper-input-input"},_boundOnFocus:{type:Function,value:function(){return this._onFocus.bind(this)}},
+_boundOnBlur:{type:Function,value:function(){return this._onBlur.bind(this)}},_boundOnInput:{type:Function,value:function(){return this._onInput.bind(this)}},_boundValueChanged:{type:Function,value:function(){return this._onValueChanged.bind(this)}}},listeners:{"addon-attached":"_onAddonAttached","iron-input-validate":"_onIronInputValidate"},get _valueChangedEvent(){return this.attrForValue+"-changed"},get _propertyForValue(){return Polymer.CaseMap.dashToCamelCase(this.attrForValue)},get _inputElement(){return Polymer.dom(this).querySelector(this._inputSelector)},
+get _inputElementValue(){return this._inputElement[this._propertyForValue]||this._inputElement.value},ready:function(){this._addons||(this._addons=[]);this.addEventListener("focus",this._boundOnFocus,!0);this.addEventListener("blur",this._boundOnBlur,!0)},attached:function(){this.attrForValue?this._inputElement.addEventListener(this._valueChangedEvent,this._boundValueChanged):this.addEventListener("input",this._onInput);""!=this._inputElementValue?this._handleValueAndAutoValidate(this._inputElement):
+this._handleValue(this._inputElement)},_onAddonAttached:function(a){this._addons||(this._addons=[]);a=a.target;-1===this._addons.indexOf(a)&&(this._addons.push(a),this.isAttached&&this._handleValue(this._inputElement))},_onFocus:function(){this._setFocused(!0)},_onBlur:function(){this._setFocused(!1);this._handleValueAndAutoValidate(this._inputElement)},_onInput:function(a){this._handleValueAndAutoValidate(a.target)},_onValueChanged:function(a){this._handleValueAndAutoValidate(a.target)},_handleValue:function(a){var b=
+this._inputElementValue;b||0===b||"number"===a.type&&!a.checkValidity()?this._inputHasContent=!0:this._inputHasContent=!1;this.updateAddons({inputElement:a,value:b,invalid:this.invalid})},_handleValueAndAutoValidate:function(a){this.autoValidate&&(this.invalid=!(a.validate?a.validate(this._inputElementValue):a.checkValidity()));this._handleValue(a)},_onIronInputValidate:function(){this.invalid=this._inputElement.invalid},_invalidChanged:function(){this._addons&&this.updateAddons({invalid:this.invalid})},
+updateAddons:function(a){for(var b,c=0;b=this._addons[c];c++)b.update(a)},_computeInputContentClass:function(a,b,c,d,e){var f="input-content";a?e&&(f+=" label-is-hidden"):(a=this.querySelector("label"),b||e?(f+=" label-is-floating",this.$.labelAndInputContainer.style.position="static",d?f+=" is-invalid":c&&(f+=" label-is-highlighted")):a&&(this.$.labelAndInputContainer.style.position="relative"));c&&(f+=" focused");return f},_computeUnderlineClass:function(a,b){var c="underline";b?c+=" is-invalid":
+a&&(c+=" is-highlighted");return c},_computeAddOnContentClass:function(a,b){var c="add-on-content";b?c+=" is-invalid":a&&(c+=" is-highlighted");return c}});
 </script>
 
 
@@ -4182,7 +4133,7 @@ Polymer({is:"paper-input-error",behaviors:[Polymer.PaperInputAddonBehavior],prop
       }
     </style>
 
-    <paper-input-container no-label-float="[[noLabelFloat]]" always-float-label="[[_computeAlwaysFloatLabel(alwaysFloatLabel,placeholder)]]" auto-validate$="[[autoValidate]]" disabled$="[[disabled]]" invalid="[[invalid]]" use-v2-underline="[[useV2Underline]]">
+    <paper-input-container no-label-float="[[noLabelFloat]]" always-float-label="[[_computeAlwaysFloatLabel(alwaysFloatLabel,placeholder)]]" auto-validate$="[[autoValidate]]" disabled$="[[disabled]]" invalid="[[invalid]]">
 
       <slot name="prefix" slot="prefix"></slot>
 
@@ -4205,7 +4156,7 @@ Polymer({is:"paper-input-error",behaviors:[Polymer.PaperInputAddonBehavior],prop
 </dom-module>
 
 <script>//~~WEBPATH~~/paper-input/paper-input.html.js
-Polymer({is:"paper-input",behaviors:[Polymer.IronFormElementBehavior,Polymer.PaperInputBehavior],properties:{useV2Underline:{type:Boolean,value:!1}}});
+Polymer({is:"paper-input",behaviors:[Polymer.IronFormElementBehavior,Polymer.PaperInputBehavior]});
 </script>
 
 
@@ -4618,7 +4569,7 @@ _disabledChanged:function(a){Polymer.IronControlState._disabledChanged.apply(thi
       <div class="dropdown-trigger" slot="dropdown-trigger">
         <paper-ripple></paper-ripple>
 
-        <paper-input type="text" invalid="[[invalid]]" readonly disabled="[[disabled]]" value="[[selectedItemLabel]]" placeholder="[[placeholder]]" error-message="[[errorMessage]]" always-float-label="[[alwaysFloatLabel]]" no-label-float="[[noLabelFloat]]" label="[[label]]" use-v2-underline="[[useV2Underline]]">
+        <paper-input type="text" invalid="[[invalid]]" readonly disabled="[[disabled]]" value="[[selectedItemLabel]]" placeholder="[[placeholder]]" error-message="[[errorMessage]]" always-float-label="[[alwaysFloatLabel]]" no-label-float="[[noLabelFloat]]" label="[[label]]">
           <iron-icon icon="paper-dropdown-menu:arrow-drop-down" suffix slot="suffix"></iron-icon>
         </paper-input>
       </div>
@@ -4628,9 +4579,9 @@ _disabledChanged:function(a){Polymer.IronControlState._disabledChanged.apply(thi
 
   <script>//~~WEBPATH~~/paper-dropdown-menu/paper-dropdown-menu.html.js
 Polymer({is:"paper-dropdown-menu",behaviors:[Polymer.IronButtonState,Polymer.IronControlState,Polymer.IronFormElementBehavior,Polymer.IronValidatableBehavior],properties:{selectedItemLabel:{type:String,notify:!0,readOnly:!0},selectedItem:{type:Object,notify:!0,readOnly:!0},value:{type:String,notify:!0,readOnly:!0},label:{type:String},placeholder:{type:String},errorMessage:{type:String},opened:{type:Boolean,notify:!0,value:!1,observer:"_openedChanged"},allowOutsideScroll:{type:Boolean,value:!1},noLabelFloat:{type:Boolean,
-value:!1,reflectToAttribute:!0},alwaysFloatLabel:{type:Boolean,value:!1},noAnimations:{type:Boolean,value:!1},horizontalAlign:{type:String,value:"right"},verticalAlign:{type:String,value:"top"},dynamicAlign:{type:Boolean},restoreFocusOnClose:{type:Boolean,value:!0},useV2Underline:{type:Boolean,value:!1}},listeners:{tap:"_onTap"},keyBindings:{"up down":"open",esc:"close"},hostAttributes:{role:"combobox","aria-autocomplete":"none","aria-haspopup":"true"},observers:["_selectedItemChanged(selectedItem)"],
-attached:function(){var a=this.contentElement;a&&a.selectedItem&&this._setSelectedItem(a.selectedItem)},get contentElement(){return Polymer.dom(this.$.content).getDistributedNodes()[0]},open:function(){this.$.menuButton.open()},close:function(){this.$.menuButton.close()},_onIronSelect:function(a){this._setSelectedItem(a.detail.item)},_onIronDeselect:function(){this._setSelectedItem(null)},_onTap:function(a){Polymer.Gestures.findOriginalTarget(a)===this&&this.open()},_selectedItemChanged:function(a){a=
-a?a.label||a.getAttribute("label")||a.textContent.trim():"";this._setValue(a);this._setSelectedItemLabel(a)},_computeMenuVerticalOffset:function(a){return a?-4:8},_getValidity:function(){return this.disabled||!this.required||this.required&&!!this.value},_openedChanged:function(){var a=this.opened?"true":"false",b=this.contentElement;b&&b.setAttribute("aria-expanded",a)}});
+value:!1,reflectToAttribute:!0},alwaysFloatLabel:{type:Boolean,value:!1},noAnimations:{type:Boolean,value:!1},horizontalAlign:{type:String,value:"right"},verticalAlign:{type:String,value:"top"},dynamicAlign:{type:Boolean},restoreFocusOnClose:{type:Boolean,value:!0}},listeners:{tap:"_onTap"},keyBindings:{"up down":"open",esc:"close"},hostAttributes:{role:"combobox","aria-autocomplete":"none","aria-haspopup":"true"},observers:["_selectedItemChanged(selectedItem)"],attached:function(){var a=this.contentElement;
+a&&a.selectedItem&&this._setSelectedItem(a.selectedItem)},get contentElement(){return Polymer.dom(this.$.content).getDistributedNodes()[0]},open:function(){this.$.menuButton.open()},close:function(){this.$.menuButton.close()},_onIronSelect:function(a){this._setSelectedItem(a.detail.item)},_onIronDeselect:function(){this._setSelectedItem(null)},_onTap:function(a){Polymer.Gestures.findOriginalTarget(a)===this&&this.open()},_selectedItemChanged:function(a){a=a?a.label||a.getAttribute("label")||a.textContent.trim():
+"";this._setValue(a);this._setSelectedItemLabel(a)},_computeMenuVerticalOffset:function(a){return a?-4:8},_getValidity:function(){return this.disabled||!this.required||this.required&&!!this.value},_openedChanged:function(){var a=this.opened?"true":"false",b=this.contentElement;b&&b.setAttribute("aria-expanded",a)}});
 </script>
 </dom-module>
 
@@ -6468,8 +6419,9 @@ _onAnimationFinish:function(){this._animationPlaying=!1;this._showing||this.togg
   </template>
   <script>//~~WEBPATH~~/tfma-confusion-matrix-at-thresholds/tfma-confusion-matrix-at-thresholds.js
 Polymer({is:"tfma-confusion-matrix-at-thresholds",properties:{data:{type:String},transformedData_:{type:Array,computed:"computeTransformedData_(data, expanded)"},expandable_:{type:Boolean,computed:"computeExpandable_(transformedData_, interactive)"},displayedData_:{type:Array,computed:"computeDisplayedData_(transformedData_, expandable_, expanded)"},expanded:{type:Boolean,value:!1,reflectToAttribute:!0},interactive:{type:Boolean,value:!0}},computeTransformedData_:function(a,b){var c=this;if(a){var d=
-[];try{d=JSON.parse(a)}catch(e){}return d.matrices.map(function(a,d){return{showTitle:0==d,threshold:c.getValue_(a,"threshold",b),precision:c.getValue_(a,"precision",b),recall:c.getValue_(a,"recall",b),truePositives:c.getValue_(a,"truePositives",b),trueNegatives:c.getValue_(a,"trueNegatives",b),falsePositives:c.getValue_(a,"falsePositives",b),falseNegatives:c.getValue_(a,"falseNegatives",b)}})}return[]},computeExpandable_:function(a,b){return b&&3<a.length},computeDisplayedData_:function(a,b,c){return c||
-3>=a.length?a:[a[0],a[1],a[2]]},getValue_:function(a,b,c){return this.toFixed_(a[b]||0,c)},computeSpecificity_:function(a,b){var c=a.trueNegatives||0;a=c+(a.falsePositives||0);return this.toFixed_(a?c/a:0,b)},toFixed_:function(a,b){return a.toFixed(b?16:tfma.FLOATING_POINT_PRECISION)},toggleExpanded_:function(){this.expandable_&&(this.expanded=this.expanded?!1:!this.fire("expand-metric",{data:this.data,metric:this.is},{cancelable:!0}).defaultPrevented)}});
+[];try{d=JSON.parse(a)}catch(e){}return d.matrices.map(function(a,d){return{showTitle:0==d,threshold:c.getFormattedValue_(a,"threshold",b),precision:c.getFormattedValue_(a,"precision",b),recall:c.getFormattedValue_(a,"recall",b),truePositives:c.getFormattedValue_(a,"truePositives",b),trueNegatives:c.getFormattedValue_(a,"trueNegatives",b),falsePositives:c.getFormattedValue_(a,"falsePositives",b),falseNegatives:c.getFormattedValue_(a,"falseNegatives",b)}})}return[]},computeExpandable_:function(a,b){return b&&
+3<a.length},computeDisplayedData_:function(a,b,c){return c||3>=a.length?a:[a[0],a[1],a[2]]},getFormattedValue_:function(a,b,c){return this.toFixed_(tfma.CellRenderer.extractFloatValue(a,b),c)},computeSpecificity_:function(a,b){var c=tfma.CellRenderer.extractFloatValue(a,"trueNegatives");a=tfma.CellRenderer.extractFloatValue(a,"falsePositives");a=c+a;return this.toFixed_(a?c/a:0,b)},toFixed_:function(a,b){return a.toFixed(b?16:tfma.FLOATING_POINT_PRECISION)},toggleExpanded_:function(){this.expandable_&&
+(this.expanded=this.expanded?!1:!this.fire("expand-metric",{data:this.data,metric:this.is},{cancelable:!0}).defaultPrevented)}});
 </script>
 </dom-module>
 
@@ -6851,6 +6803,7 @@ Polymer({is:"tfma-int64",properties:{data:{type:String}}});
       /**
        * There is a bad interaction between dom-repeat element, table tag and vulcanization. Use div
        * and equivalent display: table on class table, tr and td as a work-around.
+       * @bug 22376520
        */
       :host div.table {
         text-align: center;
@@ -6878,7 +6831,7 @@ Polymer({is:"tfma-int64",properties:{data:{type:String}}});
     </div>
   </template>
   <script>//~~WEBPATH~~/tfma-value-at-cutoffs/tfma-value-at-cutoffs.js
-Polymer({is:"tfma-value-at-cutoffs",properties:{data:{type:String},formattedData_:{type:Object,computed:"formatData_(data)"}},formatData_:function(a){try{var b=JSON.parse(a)}catch(c){}if((a=b&&b.values)&&Array.isArray(a))return a.map(function(a){return{cutoff:a.cutoff||"All",value:(a.value||0).toFixed(tfma.FLOATING_POINT_PRECISION)}})}});
+Polymer({is:"tfma-value-at-cutoffs",properties:{data:{type:String},formattedData_:{type:Object,computed:"formatData_(data)"}},formatData_:function(a){try{var b=JSON.parse(a)}catch(c){}if((a=b&&b.values)&&Array.isArray(a))return a.map(function(a){return{cutoff:a.cutoff||"All",value:tfma.CellRenderer.extractFloatValue(a,"value")}})}});
 </script>
 </dom-module>
 

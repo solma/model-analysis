@@ -45,6 +45,21 @@ testSuite({
     assertEquals('-1.2345e-3', cell.f);
   },
 
+  testRenderValueWithZero: function() {
+    const float = 0;
+    const cell = CellRenderer.renderValue(float);
+    assertEquals(float, cell.v);
+    assertEquals('0', cell.f);
+  },
+
+  testRenderValueWithScalarInValue: function() {
+    const float = 0.12345;
+    const value = {'value': float};
+    const cell = CellRenderer.renderValue(value);
+    assertEquals(float, cell.v);
+    assertEquals(float.toString(), cell.f);
+  },
+
   testRenderValueWithBoundedValue: function() {
     const value = 1;
     const boundedValue = makeBoundedValueObject(value, 2, 3);
@@ -137,6 +152,33 @@ testSuite({
         cell.f);
   },
 
+  testRenderValueWithValueAtCutoffsWithBoundedValue: function() {
+    const value = 0.2;
+    const valueAtCutoffsData = {
+      'values': [
+        {
+          'cutoff': 0,
+          'boundedValue': makeBoundedValueObject(value),
+        },
+        {
+          'cutoff': 2,
+          'boundedValue': makeBoundedValueObject(0.5, 0.44, 0.51),
+        },
+        {
+          'cutoff': 12,
+          'boundedValue': makeBoundedValueObject(0.7, 0.69, 0.9),
+        },
+      ]
+    };
+    const cell = CellRenderer.renderValue(valueAtCutoffsData);
+    assertEquals(value, cell.v);
+    assertEquals(
+        '<tfma-value-at-cutoffs data="' +
+            googString.htmlEscape(JSON.stringify(valueAtCutoffsData)) +
+            '"></tfma-value-at-cutoffs>',
+        cell.f);
+  },
+
   testSortValueAtCutoffsDataByCutoff: function() {
     const unsorted = {
       'values': [
@@ -172,6 +214,28 @@ testSuite({
         'trueNegatives': 0.84,
         'falsePositives': 0.85,
         'falseNegatives': 0.86
+      }],
+    };
+    const cell = CellRenderer.renderValue(confusionMatrixAtThresholds);
+    assertEquals(precision, cell.v);
+    assertEquals(
+        '<tfma-confusion-matrix-at-thresholds data="' +
+            googString.htmlEscape(JSON.stringify(confusionMatrixAtThresholds)) +
+            '"></tfma-confusion-matrix-at-thresholds>',
+        cell.f);
+  },
+
+  testRenderValueWithConfusionMatrixAtThresholdsWithBoundedValue: function() {
+    const precision = 0.81;
+    const confusionMatrixAtThresholds = {
+      'matrices': [{
+        'threshold': 0.8,
+        'boundedPrecision': makeBoundedValueObject(precision),
+        'boundedRecall': makeBoundedValueObject(0.82),
+        'boundedTruePositives': makeBoundedValueObject(0.83),
+        'boundedTrueNegatives': makeBoundedValueObject(0.84),
+        'boundedFalsePositives': makeBoundedValueObject(0.85),
+        'boundedFalseNegatives': makeBoundedValueObject(0.86),
       }],
     };
     const cell = CellRenderer.renderValue(confusionMatrixAtThresholds);
@@ -341,16 +405,54 @@ testSuite({
         CellRenderer.renderValueWithFormatOverride(
             value, dummyProvider, override));
   },
+
+  testExtractFloatValue() {
+    const scalar = 123;
+    const data = {
+      'metric': scalar,
+    };
+    assertEquals(scalar, CellRenderer.extractFloatValue(data, 'metric'));
+  },
+
+  testExtractFloatValueWithBoundedValue() {
+    const value = 123;
+    const data = {
+      'boundedMetric': makeBoundedValueObject(value),
+    };
+    assertEquals(value, CellRenderer.extractFloatValue(data, 'metric'));
+  },
+
+  testExtractFloatValueWithPreferBoundedValue() {
+    const value = 123;
+    const data = {
+      'boundedMetric': makeBoundedValueObject(value),
+      'metric': value + 100,
+    };
+    assertEquals(value, CellRenderer.extractFloatValue(data, 'metric'));
+  },
+
+  testExtractFloatValueReturnsZeroIfNoMatch() {
+    const value = 123;
+    const data = {
+      'boundedMetric': makeBoundedValueObject(value),
+      'metric': value + 100,
+    };
+    assertEquals(0, CellRenderer.extractFloatValue(data, 'no-match'));
+  },
 });
 
 
 /**
  * Creates a bound value object with the given inputs.
  * @param {number} value
- * @param {number} lowerBound
- * @param {number} upperBound
+ * @param {number=} opt_lowerBound
+ * @param {number=} opt_upperBound
  * @return {!Object}
  */
-function makeBoundedValueObject(value, lowerBound, upperBound) {
-  return {value: value, lowerBound: lowerBound, upperBound: upperBound};
+function makeBoundedValueObject(value, opt_lowerBound, opt_upperBound) {
+  return {
+    value: value,
+    lowerBound: opt_lowerBound || (value * 0.9),
+    upperBound: opt_upperBound || (value * 1.1),
+  };
 }

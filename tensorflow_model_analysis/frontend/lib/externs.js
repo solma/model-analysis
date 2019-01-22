@@ -80,6 +80,13 @@ tfma.CellRenderer.isBoundedValue = function(value) {};
 tfma.CellRenderer.isRatioValue = function(value) {};
 
 /**
+ * @param {!Object} value
+ * @param {string} key
+ * @return {number}
+ */
+tfma.CellRenderer.extractFloatValue = function(value, key) {};
+
+/**
  * @constructor
  */
 tfma.Data = function() {};

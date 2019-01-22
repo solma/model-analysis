@@ -92,6 +92,7 @@ let ValueAtCutoffs;
  * @enum {string}
  */
 const ValueAtCutoffsFieldNames = {
+  BOUNDED_VALUE: 'boundedValue',
   CUTOFF: 'cutoff',
   VALUE: 'value',
   VALUES: 'values',
@@ -121,6 +122,12 @@ let ConfusionMatrixAtThresholds;
  * @enum {string}
  */
 const ConfusionMatrixAtThresholdsFieldNames = {
+  BOUNDED_FALSE_NEGATIVES: 'boundedFalseNegatives',
+  BOUNDED_FALSE_POSITIVES: 'boundedFalsePositives',
+  BOUNDED_PRECISION: 'boundedPrecision',
+  BOUNDED_RECALL: 'boundedRecall',
+  BOUNDED_TRUE_NEGATIVES: 'boundedTrueNegatives',
+  BOUNDED_TRUE_POSITIVES: 'boundedTruePositives',
   FALSE_NEGATIVES: 'falseNegatives',
   FALSE_POSITIVES: 'falsePositives',
   MATRICES: 'matrices',
@@ -138,6 +145,7 @@ const ValueType = {
   BOUNDED_VALUE: 'boundedValue',
   CONFUSION_MATRIX_AT_THRESHOLDS: 'confusionMatrixAtThresholds',
   FLOAT: 'float',
+  SCALAR_IN_VALUE: 'scalarInValue',
   MULTI_CLASS_CONFUSION_MATRIX: 'MultiClassConfusionMatrix',
   RATIO_VALUE: 'ratioValue',
   STRING: 'string',
@@ -184,12 +192,37 @@ function padInt64ForSort(value) {
 }
 
 /**
+ * The prefix for the bounded value version of a scalar metric.
+ * @const @private
+ */
+const BOUNDED_VALUE_METRIC_NAME_PREFIX_ = 'bounded';
+
+/**
+ * Extracts float value with the given key out of the data object. It is assumed
+ * that there could be two fields of the form xyz and boundedXyz while xyz is
+ * the float version of the value and boundedXyz is the BoundedValue version of
+ * the value. Preference is given to the bounded value version.
+ * @param {!Object} data
+ * @param {string} key
+ * @return {number}
+ */
+function extractFloatValue(data, key) {
+  const boundedKey = BOUNDED_VALUE_METRIC_NAME_PREFIX_ +
+      key.charAt(0).toUpperCase() + key.slice(1);
+  const boundedValue = data[boundedKey];
+  return (goog.isDef(boundedValue) ?
+              boundedValue[BoundedValueFieldNames.VALUE] :
+              data[key]) ||
+      0;
+}
+
+/**
  * @param {!ValueAtCutoffs} value
  * @param {number} position Note that position is 0-based while k is 1-based.
  * @return {number} Returns the precision value at the given position.
  */
 function getValueAt(value, position) {
-  return value[position][ValueAtCutoffsFieldNames.VALUE];
+  return extractFloatValue(value[position], ValueAtCutoffsFieldNames.VALUE);
 }
 
 /**
@@ -228,6 +261,14 @@ function renderFloat(value) {
     'f': value === 0 ? '0' : trimFloat(value),
     'v': value,
   };
+}
+
+/**
+ * @param {!Object} value
+ * @return {!TableProvider.GvizCell} A gviz cell for a float.
+ */
+function renderScalarInValue(value) {
+  return renderFloat(value[BoundedValueFieldNames.VALUE]);
 }
 
 /**
@@ -380,6 +421,17 @@ function renderValueAtCutoffs(value) {
 
 /**
  * @param {!ConfusionMatrixAtThresholds} value
+ * @param {number} index
+ * @return {number} The precision with the given index.
+ */
+function getPrecisionAt(value, index) {
+  return extractFloatValue(
+      value[ConfusionMatrixAtThresholdsFieldNames.MATRICES][index],
+      ConfusionMatrixAtThresholdsFieldNames.PRECISION);
+}
+
+/**
+ * @param {!ConfusionMatrixAtThresholds} value
  * @return {!TableProvider.GvizCell} A gviz cell for a series of confusion
  *     matrix at thresholds.
  */
@@ -389,8 +441,7 @@ function renderConfusionMatrixAtThresholds(value) {
         createAttributeHtml('data', JSON.stringify(value)) +
         '></tfma-confusion-matrix-at-thresholds>',
     // Use the precision at the first position for sorting.
-    'v': value[ConfusionMatrixAtThresholdsFieldNames.MATRICES][0]
-              [ConfusionMatrixAtThresholdsFieldNames.PRECISION],
+    'v': getPrecisionAt(value, 0),
   };
 }
 
@@ -490,6 +541,17 @@ function getValueType(value) {
 
 /**
  * @param {(string|number|?Object)} value
+ * @return {boolean} Returns true if the given value contains a number in its
+ *     only field named "value"
+ */
+function isScalarInValue(value) {
+  const scalar = value[BoundedValueFieldNames.VALUE];
+  return goog.isDef(scalar) && goog.isNumber(scalar) &&
+      (Object.keys(/** @type{!Object} */ (value)).length === 1);
+}
+
+/**
+ * @param {(string|number|?Object)} value
  * @return {boolean} Returns true if the given value represents a bounded value.
  */
 function isBoundedValue(value) {
@@ -554,28 +616,47 @@ function isValueAtCutoffs(value) {
  *     representation of ValueAtCutoffs.
  */
 function isConfusionMatrixAtThresholds(value) {
+  const hasMatrixData = (item) =>
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.FALSE_NEGATIVES]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.FALSE_POSITIVES]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.PRECISION]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.RECALL]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.TRUE_NEGATIVES]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.TRUE_POSITIVES]);
+  const hasMatrixDataWithConfidenceInterval = (item) =>
+      goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
+                                    .BOUNDED_FALSE_NEGATIVES]) &&
+      goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
+                                    .BOUNDED_FALSE_POSITIVES]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.BOUNDED_PRECISION]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.BOUNDED_RECALL]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.BOUNDED_TRUE_NEGATIVES]) &&
+      goog.isDefAndNotNull(
+          item[ConfusionMatrixAtThresholdsFieldNames.BOUNDED_TRUE_POSITIVES]);
+
   return value && value[ConfusionMatrixAtThresholdsFieldNames.MATRICES] &&
       checkRepeatedMetric(
              value[ConfusionMatrixAtThresholdsFieldNames.MATRICES],
              item =>
-                 goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
-                                               .FALSE_NEGATIVES]) &&
-                 goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
-                                               .FALSE_POSITIVES]) &&
-                 goog.isDefAndNotNull(
-                     item[ConfusionMatrixAtThresholdsFieldNames.PRECISION]) &&
-                 goog.isDefAndNotNull(
-                     item[ConfusionMatrixAtThresholdsFieldNames.RECALL]) &&
                  goog.isDefAndNotNull(
                      item[ConfusionMatrixAtThresholdsFieldNames.THRESHOLD]) &&
-                 goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
-                                               .TRUE_NEGATIVES]) &&
-                 goog.isDefAndNotNull(item[ConfusionMatrixAtThresholdsFieldNames
-                                               .TRUE_POSITIVES]));
+                 (hasMatrixData(item) ||
+                  hasMatrixDataWithConfidenceInterval(item)));
 }
 
 // Registers all built-in renderers.
 registerRenderer(ValueType.FLOAT, renderFloat, goog.isNumber);
+registerRenderer(
+    ValueType.SCALAR_IN_VALUE, renderScalarInValue, isScalarInValue);
 registerRenderer(ValueType.BOUNDED_VALUE, renderBoundedValue, isBoundedValue);
 registerRenderer(ValueType.STRING, renderString, goog.isString);
 registerRenderer(
@@ -648,6 +729,7 @@ goog.exportSymbol(
 
 goog.exportSymbol('tfma.CellRenderer.isBoundedValue', isBoundedValue);
 goog.exportSymbol('tfma.CellRenderer.isRatioValue', isRatioValue);
+goog.exportSymbol('tfma.CellRenderer.extractFloatValue', extractFloatValue);
 
 exports = {
   BoundedValue,
@@ -656,4 +738,5 @@ exports = {
   renderValueWithFormatOverride,
   registerRenderer,
   registerOverrideRenderer,
+  extractFloatValue,
 };
