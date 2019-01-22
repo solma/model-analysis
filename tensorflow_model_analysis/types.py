@@ -45,6 +45,27 @@ DictOfFetchedTensorValues = Dict[KeyType, Dict[Text, TensorValue]]
 MetricVariablesType = List[Any]
 
 
+class ValueWithConfidenceInterval(
+    NamedTuple('ValueWithConfidenceInterval', [
+        ('value', float),
+        ('lower_bound', float),
+        ('upper_bound', float),
+        ('unsampled_value', float),
+    ])):
+  """Represents a value with mean, upper, and lower bound."""
+
+  def __new__(
+      cls,
+      value,
+      lower_bound = None,
+      upper_bound = None,
+      unsampled_value = None,
+  ):
+    # Add bounds checking?
+    return super(ValueWithConfidenceInterval, cls).__new__(
+        cls, value, lower_bound, upper_bound, unsampled_value)
+
+
 FeaturesPredictionsLabels = NamedTuple(
     'FeaturesPredictionsLabels', [('input_ref', int),
                                   ('features', DictOfFetchedTensorValues),

@@ -56,6 +56,9 @@ message ValueAtCutoffs {
   message ValueCutoffPair {
     int32 cutoff = 1;
     double value = 2;
+    // Bounded Value representation of the data. Populate both values. See
+    // comments in ConfusionMatrixAtThresholds for migration plan details.
+    BoundedValue bounded_value = 3;
   }
   repeated ValueCutoffPair values = 1;
 }
@@ -76,7 +79,7 @@ message ConfusionMatrixAtThresholds {
     // in all cases in the future.
     // Migration plan is to proceed as follows:
     // - modify callers to always populate both fields
-    // - wait a bit; update frontend to only look at the new bounded fields
+    // - update frontend to preferentially look at the new bounded fields
     // - stop populating the old fields
     BoundedValue bounded_false_negatives = 8;
     BoundedValue bounded_true_negatives = 9;
@@ -123,6 +126,12 @@ message ArrayValue {
 // how to visualize the values based on the types.
 message MetricValue {
   oneof type {
+    // Since BoundedValue can represent a point estimate without intervals it
+    // makes sense to use that in all non-plot cases in the future.
+    // Migration plan is to proceed as follows:
+    // - modify callers to always populate both fields
+    // - update frontend to preferentially look at the new bounded fields
+    // - stop populating the old fields
     google.protobuf.DoubleValue double_value = 1;
     BoundedValue bounded_value = 2;
     ValueAtCutoffs value_at_cutoffs = 4;

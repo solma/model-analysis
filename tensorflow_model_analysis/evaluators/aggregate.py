@@ -18,9 +18,14 @@ from __future__ import division
 
 from __future__ import print_function
 
+import copy
+
 
 import apache_beam as beam
 import numpy as np
+from scipy import mean
+from scipy.stats import sem
+from scipy.stats import t
 
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis import types
@@ -28,7 +33,7 @@ from tensorflow_model_analysis.eval_metrics_graph import eval_metrics_graph
 from tensorflow_model_analysis.eval_saved_model import dofn
 from tensorflow_model_analysis.post_export_metrics import metric_keys
 from tensorflow_model_analysis.slicer import slicer
-from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterable, List, Optional, Text, Tuple
+from tensorflow_model_analysis.types_compat import Any, Dict, Generator, Iterable, List, Optional, Text, Tuple, Union
 
 
 _SAMPLE_ID = '___SAMPLE_ID'
@@ -45,6 +50,7 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
     eval_shared_model,
     desired_batch_size = None,
     num_bootstrap_samples = 1,
+    random_seed = None,
 ):
   """PTransform for computing, aggregating and combining metrics.
 
@@ -59,6 +65,7 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
       bootstrap method. To calculate standard errors, num_bootstrap_samples
       should be 20 or more in order to provide useful data. More is better, but
       you pay a performance cost.
+    random_seed: Seed to use for testing, because nondeterministic tests stink.
 
   Returns:
     DoOutputsTuple. The tuple entries are
@@ -68,26 +75,46 @@ def ComputePerSliceMetrics(  # pylint: disable=invalid-name
   slice_result.element_type = beam.typehints.Any
 
   compute_with_sampling = False
+  if not num_bootstrap_samples:
+    num_bootstrap_samples = 1
   if num_bootstrap_samples < 1:
     raise ValueError(
         'num_bootstrap_samples should be > 0, got %d' % num_bootstrap_samples)
+
   if num_bootstrap_samples > 1:
-    slice_result = slice_result | 'FanoutBootstrap' >> beam.ParDo(
+    slice_result_sampled = slice_result | 'FanoutBootstrap' >> beam.ParDo(
         _FanoutBootstrapFn(num_bootstrap_samples))
     compute_with_sampling = True
+
   fanout = 16
-  return (
+
+  output_results = (
       slice_result
       | 'CombinePerSlice' >> beam.CombinePerKey(
           _AggregateCombineFn(
               eval_shared_model=eval_shared_model,
               desired_batch_size=desired_batch_size,
-              compute_with_sampling=compute_with_sampling)).with_hot_key_fanout(
-                  fanout)
+              compute_with_sampling=False)).with_hot_key_fanout(fanout)
       | 'InterpretOutput' >> beam.ParDo(
-          _ExtractOutputDoFn(eval_shared_model=eval_shared_model)).with_outputs(
-              _ExtractOutputDoFn.OUTPUT_TAG_PLOTS,
-              main=_ExtractOutputDoFn.OUTPUT_TAG_METRICS))
+          _ExtractOutputDoFn(eval_shared_model=eval_shared_model)))
+  if compute_with_sampling:
+    output_results = (
+        slice_result_sampled
+        | 'CombinePerSliceWithSamples' >> beam.CombinePerKey(
+            _AggregateCombineFn(
+                eval_shared_model=eval_shared_model,
+                desired_batch_size=desired_batch_size,
+                compute_with_sampling=True,
+                seed_for_testing=random_seed)).with_hot_key_fanout(fanout)
+        | 'InterpretSampledOutput' >> beam.ParDo(
+            _ExtractOutputDoFn(eval_shared_model=eval_shared_model))
+        | beam.GroupByKey()
+        | beam.ParDo(_MergeBootstrap(), beam.pvalue.AsIter(output_results)))
+  # Separate metrics and plots.
+  return (output_results
+          | beam.ParDo(_SeparateMetricsAndPlotsFn()).with_outputs(
+              _SeparateMetricsAndPlotsFn.OUTPUT_TAG_PLOTS,
+              main=_SeparateMetricsAndPlotsFn.OUTPUT_TAG_METRICS))
 
 
 @beam.typehints.with_input_types(
@@ -111,6 +138,116 @@ class _FanoutBootstrapFn(beam.DoFn):
       # CombinePerKey, we shouldn't have to deal with a great increase in
       # network traffic.
       yield (augmented_slice_key, value)
+
+
+def _collect_metrics(item, cumulative_key,
+                     aggregated_metrics):
+  """Aggregates individual metrics over multiple bootstrap samples.
+
+  Since some metric values are compound, we have to make sure to aggregate
+  each individual value in a compound metric and get its upper and lower bounds.
+  We do this by creating a key based on the location of the value inside the
+  compound metric, and storing the sample values corresponding to that key.
+
+  Args:
+    item: The metric value to add to aggregated_metrics.
+    cumulative_key: The key (so far) to use in aggregated_metrics dict.
+    aggregated_metrics: The dict collecting all the metrics over samples.
+  """
+  if isinstance(item, np.ndarray):
+    # The metric is compound, we need to recurse until we hit individual values.
+    for index, sub_item in enumerate(item):
+      _collect_metrics(sub_item, '%s,%d' % (cumulative_key, index),
+                       aggregated_metrics)
+  else:
+    # The metric is an individual value, and should be added to the aggregate
+    # collection.
+    if cumulative_key not in aggregated_metrics:
+      aggregated_metrics[cumulative_key] = []
+    if not np.isnan(item):
+      aggregated_metrics[cumulative_key].append(item)
+
+
+def _populate_bounded_metrics(
+    index_list, metric_structure,
+    value):
+  """Recreates the original metric structure with bounded values."""
+  if not index_list:
+    metric_structure = value
+    return
+  if len(index_list) == 1:
+    metric_structure[int(index_list[0])] = value
+    return
+  metric_structure = metric_structure[int(index_list.pop(0))]
+  _populate_bounded_metrics(index_list, metric_structure, value)
+
+
+class _MergeBootstrap(beam.DoFn):
+  """Merge the bootstrap values and fit a T-distribution to get confidence."""
+
+  def process(self, element, unsampled_results):
+    slice_key, metrics = element
+    # metrics should be a list of dicts, but the dataflow runner has a quirk
+    # that requires specific casting.
+    metrics = list(metrics)
+    side_input_results = {}
+
+    for result in unsampled_results:
+      unsampled_slice_key, unsampled_metrics = result
+      side_input_results[unsampled_slice_key] = unsampled_metrics
+    if len(metrics) == 1:
+      yield slice_key, metrics
+      return
+
+    original_structure = copy.copy(metrics[0])
+    uber_metrics = {}
+    unsampled_metrics = {}
+    for m_dict in metrics:
+      # For each metric in each slice, aggregate values over all of the computed
+      # samples.
+      for key in m_dict:
+        _collect_metrics(m_dict[key], key, uber_metrics)
+        unsampled_slice_key = slice_key
+        if slice_key not in side_input_results:
+          # Due to inconsistencies in Tuple casting in slice_key extractors.
+          unsampled_slice_key = slice_key[0]
+        _collect_metrics(side_input_results[unsampled_slice_key][key], key,
+                         unsampled_metrics)
+
+    for key in uber_metrics:
+      # Compute confidence interval given the data points per metric.
+      confidence = 0.95
+      data = uber_metrics[key]
+      # Data has to be numeric. That means throw out nan values.
+      n_samples = len(data)
+      if n_samples:
+        sample_mean = mean(data)
+        std_err = sem(data)
+        t_stat = t.ppf((1 + confidence) / 2, n_samples - 1)
+        upper_bound = sample_mean + t_stat * std_err
+        lower_bound = sample_mean - t_stat * std_err
+        # Set [mean, lower_bound, upper_bound] for each metric component.
+        uber_metrics[key] = types.ValueWithConfidenceInterval(
+            sample_mean, lower_bound, upper_bound, unsampled_metrics[key][0])
+      else:
+        uber_metrics[key] = types.ValueWithConfidenceInterval(
+            float('nan'), float('nan'), float('nan'), float('nan'))
+
+    # Convert metrics back into expected format with bounded values.
+    for sub_key in uber_metrics:
+      # Break sub-key into components.
+      key_components = sub_key.split(',')
+      original_key = key_components[0]
+      metric_structure = original_structure[original_key]
+      if isinstance(metric_structure, np.ndarray):
+        metric_structure = np.array(metric_structure, dtype=object)
+        _populate_bounded_metrics(key_components[1:], metric_structure,
+                                  uber_metrics[sub_key])
+      else:
+        metric_structure = uber_metrics[sub_key]
+      original_structure[original_key] = metric_structure
+
+    yield slice_key, original_structure
 
 
 def _add_metric_variables(  # pylint: disable=invalid-name
@@ -200,10 +337,11 @@ class _AggregateCombineFn(beam.CombineFn):
   def __init__(self,
                eval_shared_model,
                desired_batch_size = None,
-               compute_with_sampling = False):
+               compute_with_sampling = False,
+               seed_for_testing = None):
     self._eval_shared_model = eval_shared_model
     self._eval_metrics_graph = None  # type: eval_metrics_graph.EvalMetricsGraph
-
+    self._seed_for_testing = seed_for_testing
     # We really want the batch size to be adaptive like it is in
     # beam.BatchElements(), but there isn't an easy way to make it so.
     if desired_batch_size and desired_batch_size > 0:
@@ -262,6 +400,9 @@ class _AggregateCombineFn(beam.CombineFn):
     Returns:
       A list of FPLs representing a bootstrap resample of the accumulator items.
     """
+    if self._seed_for_testing:
+      np.random.seed(self._seed_for_testing)
+
     result = []
     if accumulator.fpls:
       while not result:
@@ -346,6 +487,31 @@ class _AggregateCombineFn(beam.CombineFn):
     return accumulator.metric_variables
 
 
+class _SeparateMetricsAndPlotsFn(beam.DoFn):
+  """Separates metrics and plots into two separate PCollections."""
+  OUTPUT_TAG_METRICS = 'tag_metrics'
+  OUTPUT_TAG_PLOTS = 'tag_plots'
+
+  def process(self,
+              element):
+    (slice_key, results) = element
+    slicing_metrics = {}
+    plots = {}
+    for k, v in results.items():  # pytype: disable=attribute-error
+      plot = False
+      # We need to check for substrings here because metrics may have prefixes
+      # based on multiple labels and/or heads.
+      for subkey in metric_keys.PLOT_KEYS:
+        if k.endswith(subkey):
+          plots[k] = v
+          plot = True
+      if not plot:
+        slicing_metrics[k] = v
+    yield (slice_key, slicing_metrics)
+    if plots:
+      yield beam.pvalue.TaggedOutput(self.OUTPUT_TAG_PLOTS, (slice_key, plots))  # pytype: disable=bad-return-type
+
+
 @beam.typehints.with_input_types(
     beam.typehints.Tuple[slicer.BeamSliceKeyType, beam.typehints
                          .List[beam.typehints.Any]])
@@ -353,9 +519,6 @@ class _AggregateCombineFn(beam.CombineFn):
 # Beam doesn't support typehints for yet (BEAM-3280).
 class _ExtractOutputDoFn(beam.DoFn):
   """A DoFn that extracts the metrics output."""
-
-  OUTPUT_TAG_METRICS = 'tag_metrics'
-  OUTPUT_TAG_PLOTS = 'tag_plots'
 
   def __init__(self, eval_shared_model):
     self._eval_shared_model = eval_shared_model
@@ -387,18 +550,10 @@ class _ExtractOutputDoFn(beam.DoFn):
     if metric_variables:
       self._eval_saved_model.set_metric_variables(metric_variables)
     result = self._eval_saved_model.get_metric_values()
-    slicing_metrics = {}
-    plots = {}
-    for k, v in result.items():
-      plot = False
-      # We need to check for substrings here because metrics may have prefixes
-      # based on multiple labels and/or heads.
-      for subkey in metric_keys.PLOT_KEYS:
-        if k.endswith(subkey):
-          plots[k] = v
-          plot = True
-      if not plot:
-        slicing_metrics[k] = v
-    yield (slice_key, slicing_metrics)
-    if plots:
-      yield beam.pvalue.TaggedOutput(self.OUTPUT_TAG_PLOTS, (slice_key, plots))  # pytype: disable=bad-return-type
+
+    # If slice key contains uncertainty sample ID, remove it from the key.
+    if len(slice_key) and _SAMPLE_ID in slice_key[0]:
+      slice_key = slice_key[1:]
+    if len(slice_key) and not slice_key[0]:  # Overall slice.
+      slice_key = ()
+    yield (tuple(slice_key), result)

@@ -21,6 +21,7 @@ import os
 
 import apache_beam as beam
 from apache_beam.testing import util
+import numpy as np
 import tensorflow as tf
 from tensorflow_model_analysis import constants
 from tensorflow_model_analysis.eval_saved_model import load
@@ -43,6 +44,32 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
 
   def _getEvalExportDir(self):
     return os.path.join(self._getTempDir(), 'eval_export_dir')
+
+  def testCollectMetricsOverSamples(self):
+    confusion_matrix_value = np.array([[0, 0, 2, 7, 0.77777779, 1],
+                                       [1, 0, 2, 6, 0.75, 0.85714287],
+                                       [4, 0, 2, 3, 0.60000002, 0.42857143],
+                                       [4, 2, 0, 3, 1, 0.42857143],
+                                       [7, 2, 0, 0, float('nan'), 0]])
+    uber_metrics = {}
+    aggregate._collect_metrics(confusion_matrix_value, 'my_key', uber_metrics)
+    self.assertEqual(len(uber_metrics), 30)
+    self.assertEqual(uber_metrics['my_key,0,0'], [0])
+    self.assertEqual(uber_metrics['my_key,0,1'], [0])
+    self.assertEqual(uber_metrics['my_key,4,4'], [])  # nan
+    aggregate._collect_metrics(
+        np.array([
+            1,
+            2,
+            0,
+            3,
+            1,
+            1,
+        ]), 'my_key,0', uber_metrics)
+    self.assertEqual(len(uber_metrics), 30)
+    self.assertEqual(uber_metrics['my_key,0,0'], [0, 1])
+    self.assertEqual(uber_metrics['my_key,0,1'], [0, 2])
+    self.assertEqual(uber_metrics['my_key,4,4'], [])  # nan
 
   def testAggregateOverallSlice(self):
 
@@ -191,7 +218,6 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
           create_test_input(
               predict_result_english_slice + predict_result_chinese_slice,
               [()]))
-
       metrics, _ = (
           pipeline
           | 'CreateTestInput' >> beam.Create(test_input)
@@ -201,38 +227,40 @@ class AggregateTest(testutil.TensorflowModelAnalysisTest):
               num_bootstrap_samples=10))
 
       def check_overall_slice(slices):
-        for i in range(0, 10):
-          self.assertIn(((aggregate._SAMPLE_ID, i), ()), slices.keys())
-          my_dict = slices[((aggregate._SAMPLE_ID, i), ())]
-          self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
-          self.assertAlmostEqual(1.0, my_dict['accuracy'])
-          self.assertAlmostEqual(0.5, my_dict['label/mean'], delta=0.5)
-          self.assertAlmostEqual(
-              2.5, my_dict['my_mean_age_times_label'], delta=2.5)
+        my_dict = slices[()]
+        self.assertAlmostEqual(3.75, my_dict['my_mean_age'].value, delta=1)
+        self.assertAlmostEqual(3.75, my_dict['my_mean_age'].unsampled_value)
+        for value in my_dict['accuracy']:
+          self.assertAlmostEqual(1.0, value)
+        for value in my_dict['label/mean']:
+          self.assertAlmostEqual(0.5, value, delta=0.5)
+        for value in my_dict['my_mean_age_times_label']:
+          self.assertAlmostEqual(2.5, value, delta=2.5)
 
       def check_english_slice(slices):
-        for i in range(0, 10):
-          self.assertIn(((aggregate._SAMPLE_ID, i), ('language', 'english')),
-                        slices.keys())
-          my_dict = slices[((aggregate._SAMPLE_ID, i), ('language', 'english'))]
-          self.assertAlmostEqual(3.5, my_dict['my_mean_age'], delta=0.5)
-          self.assertAlmostEqual(1.0, my_dict['accuracy'])
-          self.assertAlmostEqual(1.0, my_dict['label/mean'])
-          self.assertAlmostEqual(
-              3.5, my_dict['my_mean_age_times_label'], delta=0.5)
+        my_dict = slices[(('language', 'english'),)]
+        self.assertAlmostEqual(3.5, my_dict['my_mean_age'].value, delta=1)
+        self.assertAlmostEqual(3.5, my_dict['my_mean_age'].unsampled_value)
+        for value in my_dict['accuracy']:
+          self.assertAlmostEqual(1.0, value)
+        for value in my_dict['label/mean']:
+          self.assertAlmostEqual(1.0, value)
+        for value in my_dict['my_mean_age_times_label']:
+          self.assertAlmostEqual(3.5, value, delta=1)
 
       def check_chinese_slice(slices):
-        for i in range(0, 10):
-          self.assertIn(((aggregate._SAMPLE_ID, i), ('language', 'chinese')),
-                        slices.keys())
-          my_dict = slices[((aggregate._SAMPLE_ID, i), ('language', 'chinese'))]
-          self.assertAlmostEqual(4.0, my_dict['my_mean_age'], delta=1)
-          self.assertAlmostEqual(1.0, my_dict['accuracy'])
-          self.assertAlmostEqual(0.0, my_dict['label/mean'])
-          self.assertAlmostEqual(0.0, my_dict['my_mean_age_times_label'])
+        my_dict = slices[(('language', 'chinese'),)]
+        self.assertAlmostEqual(4.0, my_dict['my_mean_age'].value, delta=1)
+        self.assertAlmostEqual(4.0, my_dict['my_mean_age'].unsampled_value)
+        for value in my_dict['accuracy']:
+          self.assertAlmostEqual(1.0, value)
+        for value in my_dict['label/mean']:
+          self.assertAlmostEqual(0, value)
+        for value in my_dict['my_mean_age_times_label']:
+          self.assertAlmostEqual(0, value)
 
       def check_result(got):
-        self.assertEqual(30, len(got), 'got: %s' % got)
+        self.assertEqual(3, len(got), 'got: %s' % got)
         slices = {}
         for slice_key, metrics in got:
           slices[slice_key] = metrics

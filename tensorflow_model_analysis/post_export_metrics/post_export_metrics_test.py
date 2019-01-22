@@ -45,12 +45,21 @@ import tensorflow_model_analysis.post_export_metrics.metric_keys as metric_keys
 from tensorflow_model_analysis.proto import metrics_for_slice_pb2
 
 
+# Seed that returns '1' for the first 14 calls to Poisson(1). This means that
+# the bootstrap samples generated for small test sets should a) be deterministic
+# and b) match the values seen when not computing uncertainty.
+_MAGIC_SEED = 857586
+
+
 def full_key(name_constant):
   """Convenient way of getting metric prefixed with 'post_export_metrics'."""
   return metric_keys.add_metric_prefix(name_constant, metric_keys.NAME_PREFIX)
 
 
 class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
+
+  num_bootstrap_samples = 1  # Set to number > 1 to test uncertainty.
+  deterministic_test_seed = _MAGIC_SEED
 
   def _getEvalExportDir(self):
     return os.path.join(self._getTempDir(), 'eval_export_dir')
@@ -75,8 +84,11 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
           | 'Create' >> beam.Create(serialized_examples)
           | 'InputsToExtracts' >> model_eval_lib.InputsToExtracts()
           | 'Extract' >> tfma_unit.Extract(extractors=extractors)  # pylint: disable=no-value-for-parameter
-          | 'ComputeMetricsAndPlots' >> metrics_and_plots_evaluator
-          .ComputeMetricsAndPlots(eval_shared_model=eval_shared_model))
+          | 'ComputeMetricsAndPlots' >>
+          metrics_and_plots_evaluator.ComputeMetricsAndPlots(
+              eval_shared_model=eval_shared_model,
+              num_bootstrap_samples=self.num_bootstrap_samples,
+              random_seed=self.deterministic_test_seed))
       if custom_metrics_check is not None:
         util.assert_that(metrics, custom_metrics_check, label='metrics')
       if custom_plots_check is not None:
@@ -155,6 +167,59 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         post_export_metrics.example_count(),
         post_export_metrics.example_weight('age')
     ], expected_values_dict)
+
+  def testPostExportMetricsLinearClassifierWithUncertainty(self):
+    self.num_bootstrap_samples = 10
+    self.deterministic_test_seed = None  # Explicitly disable determinism.
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = linear_classifier.simple_linear_classifier(
+        None, temp_eval_export_dir)
+    examples = [
+        self._makeExample(age=3.0, language='english', label=1.0),
+        self._makeExample(age=3.0, language='chinese', label=0.0),
+        self._makeExample(age=4.0, language='english', label=1.0),
+        self._makeExample(age=5.0, language='chinese', label=0.0)
+    ]
+
+    example_count_metric = post_export_metrics.example_count()
+    example_weight_metric = post_export_metrics.example_weight('age')
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (_, value) = got[0]
+        self.assertIn(metric_keys.EXAMPLE_COUNT, value)
+        count_values = value[metric_keys.EXAMPLE_COUNT]
+        self.assertAlmostEqual(count_values.unsampled_value, 4.0)
+        self.assertIn(metric_keys.EXAMPLE_WEIGHT, value)
+        weight_values = value[metric_keys.EXAMPLE_WEIGHT]
+        self.assertAlmostEqual(weight_values.unsampled_value, 15.0)
+        output_metrics = metrics_for_slice_pb2.MetricsForSlice().metrics
+        example_count_metric.populate_stats_and_pop(value, output_metrics)
+        example_weight_metric.populate_stats_and_pop(value, output_metrics)
+        self.assertProtoEquals(
+            """
+            double_value {
+              value: 4.0
+            }
+            """, output_metrics[metric_keys.EXAMPLE_COUNT])
+        self.assertProtoEquals(
+            """
+            double_value {
+              value: 15.0
+            }
+            """, output_metrics[metric_keys.EXAMPLE_WEIGHT])
+
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [
+            example_count_metric,
+            example_weight_metric,
+        ],
+        custom_metrics_check=check_result)
 
   def testPostExportMetricsWithTag(self):
     temp_eval_export_dir = self._getEvalExportDir()
@@ -404,30 +469,47 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
               values {
                 cutoff: 0
                 value: 0.44444444
+                bounded_value {
+                  value {
+                    value: 0.4444444
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 1
                 value: 0.66666666
+                bounded_value {
+                  value {
+                    value: 0.66666666
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 2
                 value: 0.33333333
+               bounded_value {
+                  value {
+                    value: 0.33333333
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 3
                 value: 0.44444444
+                bounded_value {
+                  value {
+                    value: 0.4444444
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 5
                 value: 0.44444444
+                bounded_value {
+                  value {
+                    value: 0.4444444
+                  }
+                }
               }
             }
             """, output_metrics[full_key(metric_keys.PRECISION_AT_K)])
@@ -437,33 +519,148 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
               values {
                 cutoff: 0
                 value: 1.0
+                bounded_value {
+                  value {
+                    value: 1.0
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 1
                 value: 0.5
+                bounded_value {
+                  value {
+                    value: 0.5
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 2
                 value: 0.5
+                bounded_value {
+                  value {
+                    value: 0.5
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 3
                 value: 1.0
+                bounded_value {
+                  value {
+                    value: 1.0
+                  }
+                }
               }
-            }
-            value_at_cutoffs {
               values {
                 cutoff: 5
                 value: 1.0
+                bounded_value {
+                  value {
+                    value: 1.0
+                  }
+                }
               }
             }
             """, output_metrics[full_key(metric_keys.RECALL_AT_K)])
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [precision_recall_metric],
+        custom_metrics_check=check_result)
+
+  def testPrecisionRecallAtKUnweightedWithUncertainty(self):
+    self.num_bootstrap_samples = 10
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_classifier.simple_fixed_prediction_classifier(
+            None, temp_eval_export_dir))
+    examples = [
+        self._makeExample(
+            classes=['a', 'b', 'c'],
+            scores=[0.9, 0.8, 0.7],
+            labels=['a', 'c'],
+            fixed_float=1.0,
+            fixed_string=''),
+        self._makeExample(
+            classes=['a', 'b', 'c'],
+            scores=[0.9, 0.2, 0.1],
+            labels=['a'],
+            fixed_float=2.0,
+            fixed_string=''),
+        self._makeExample(
+            classes=['a', 'b', 'c'],
+            scores=[0.1, 0.2, 0.9],
+            labels=['a'],
+            fixed_float=3.0,
+            fixed_string=''),
+    ]
+
+    precision_recall_metric = post_export_metrics.precision_recall_at_k(
+        [0, 1, 2, 3, 5])
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertIn(full_key(metric_keys.PRECISION_RECALL_AT_K), value)
+        table = value[full_key(metric_keys.PRECISION_RECALL_AT_K)]
+        cutoffs = table[:, 0].tolist()
+        precision = table[:, 1].tolist()
+        recall = table[:, 2].tolist()
+
+        expected_cutoffs = [0, 1, 2, 3, 5]
+        expected_precision = [
+            4.0 / 9.0, 2.0 / 3.0, 2.0 / 6.0, 4.0 / 9.0, 4.0 / 9.0
+        ]
+        expected_recall = [
+            4.0 / 4.0, 2.0 / 4.0, 2.0 / 4.0, 4.0 / 4.0, 4.0 / 4.0
+        ]
+        self.assertSequenceAlmostEqual([cutoff.value for cutoff in cutoffs],
+                                       expected_cutoffs)
+        self.assertSequenceAlmostEqual([prec.value for prec in precision],
+                                       expected_precision,
+                                       delta=0.2)
+        self.assertSequenceAlmostEqual([rec.value for rec in recall],
+                                       expected_recall,
+                                       delta=0.2)
+
+        # Check serialization too.
+        # Note that we can't just make this a dict, since proto maps
+        # allow uninitialized key access, i.e. they act like defaultdicts.
+        output_metrics = metrics_for_slice_pb2.MetricsForSlice().metrics
+        precision_recall_metric.populate_stats_and_pop(value, output_metrics)
+        for value in output_metrics[
+            metric_keys.PRECISION_AT_K].value_at_cutoffs.values:
+          # Note that we can't check the exact values because of nondeterminism.
+          # We'll check that the values are equivalent, and close enough to the
+          # expected precision and recall values for the cutoff.
+          expected_value = expected_precision[expected_cutoffs.index(
+              value.cutoff)]
+          self.assertAlmostEqual(value.value, expected_value, delta=0.2)
+          self.assertAlmostEqual(
+              value.bounded_value.value.value, expected_value, delta=0.2)
+          self.assertAlmostEqual(
+              value.bounded_value.upper_bound.value, expected_value, delta=0.4)
+          self.assertAlmostEqual(
+              value.bounded_value.lower_bound.value, expected_value, delta=0.4)
+
+        for value in output_metrics[
+            metric_keys.RECALL_AT_K].value_at_cutoffs.values:
+          # Note that we can't check the exact values because of nondeterminism.
+          # We'll check that the values are equivalent, and close enough to the
+          # expected precision and recall values for the cutoff.
+          expected_value = expected_recall[expected_cutoffs.index(value.cutoff)]
+          self.assertAlmostEqual(value.value, expected_value, delta=0.2)
+          self.assertAlmostEqual(
+              value.bounded_value.value.value, expected_value, delta=0.2)
+          self.assertAlmostEqual(
+              value.bounded_value.upper_bound.value, expected_value, delta=0.4)
+          self.assertAlmostEqual(
+              value.bounded_value.lower_bound.value, expected_value, delta=0.4)
       except AssertionError as err:
         raise util.BeamAssertException(err)
 
@@ -637,6 +834,89 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         eval_export_dir, [calibration_plot],
         custom_plots_check=check_result)
 
+  def testCalibrationPlotAndPredictionHistogramUnweightedWithUncertainty(self):
+    self.num_bootstrap_samples = 10
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_estimator.simple_fixed_prediction_estimator(
+            None, temp_eval_export_dir))
+    examples = [
+        # For each example, we set label to prediction + 1.
+        # These two go in bucket 0: (-inf, 0)
+        self._makeExample(prediction=-10.0, label=-9.0),
+        self._makeExample(prediction=-9.0, label=-8.0),
+        # This goes in bucket 1: [0, 0.00100)
+        self._makeExample(prediction=0.00000, label=1.00000),
+        # These three go in bucket 1: [0.00100, 0.00110)
+        self._makeExample(prediction=0.00100, label=1.00100),
+        self._makeExample(prediction=0.00101, label=1.00101),
+        self._makeExample(prediction=0.00102, label=1.00102),
+        # These two go in bucket 10000: [0.99990, 1.00000)
+        self._makeExample(prediction=0.99998, label=1.99998),
+        self._makeExample(prediction=0.99999, label=1.99999),
+        # These four go in bucket 10001: [1.0000, +inf)
+        self._makeExample(prediction=1.0, label=2.0),
+        self._makeExample(prediction=8.0, label=9.0),
+        self._makeExample(prediction=9.0, label=10.0),
+        self._makeExample(prediction=10.0, label=11.0),
+    ]
+
+    calibration_plot = (
+        post_export_metrics.calibration_plot_and_prediction_histogram())
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertIn(full_key(metric_keys.CALIBRATION_PLOT_MATRICES), value)
+        buckets = value[full_key(metric_keys.CALIBRATION_PLOT_MATRICES)]
+        self.assertSequenceAlmostEqual([item.value for item in buckets[0]],
+                                       [-19.0, -17.0, 2.0],
+                                       delta=2)
+        self.assertSequenceAlmostEqual([item.value for item in buckets[1]],
+                                       [0.0, 1.0, 1.0],
+                                       delta=2)
+        self.assertSequenceAlmostEqual([item.value for item in buckets[11]],
+                                       [0.00303, 3.00303, 3.0],
+                                       delta=2)
+        self.assertSequenceAlmostEqual([item.value for item in buckets[10000]],
+                                       [1.99997, 3.99997, 2.0],
+                                       delta=2)
+        self.assertSequenceAlmostEqual([item.value for item in buckets[10001]],
+                                       [28.0, 32.0, 4.0],
+                                       delta=2)
+        self.assertIn(full_key(metric_keys.CALIBRATION_PLOT_BOUNDARIES), value)
+        boundaries = value[full_key(metric_keys.CALIBRATION_PLOT_BOUNDARIES)]
+        self.assertAlmostEqual(0.0, boundaries[0].value)
+        self.assertAlmostEqual(0.001, boundaries[10].value)
+        self.assertAlmostEqual(0.005, boundaries[50].value)
+        self.assertAlmostEqual(0.010, boundaries[100].value)
+        self.assertAlmostEqual(0.100, boundaries[1000].value)
+        self.assertAlmostEqual(0.800, boundaries[8000].value)
+        self.assertAlmostEqual(1.000, boundaries[10000].value)
+        plot_data = metrics_for_slice_pb2.PlotData()
+        calibration_plot.populate_plots_and_pop(value, plot_data)
+        self.assertProtoEquals(
+            """lower_threshold_inclusive:1.0
+            upper_threshold_exclusive: inf
+            num_weighted_examples {
+              value: 4.0
+            }
+            total_weighted_label {
+              value: 32.0
+            }
+            total_weighted_refined_prediction {
+              value: 28.0
+            }""", plot_data.calibration_histogram_buckets.buckets[10001])
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [calibration_plot],
+        custom_plots_check=check_result)
+
   def testCalibrationPlotAndPredictionHistogramWeighted(self):
     temp_eval_export_dir = self._getEvalExportDir()
     _, eval_export_dir = (
@@ -768,8 +1048,165 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
             false_positives: 0.0
             true_positives: 0.0
             precision: nan
-            recall: 0.0 """,
-            plot_data.confusion_matrix_at_thresholds.matrices[10001])
+            recall: 0.0
+            bounded_false_negatives {
+              value {
+                value: 3.0
+              }
+            }
+            bounded_true_negatives {
+              value {
+                value: 2.0
+              }
+            }
+            bounded_false_positives {
+              value {
+              }
+            }
+            bounded_true_positives {
+              value {
+              }
+            }
+            bounded_precision {
+              value {
+                value: nan
+              }
+            }
+            bounded_recall {
+              value {
+              }
+            }""", plot_data.confusion_matrix_at_thresholds.matrices[10001])
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples, eval_export_dir, [auc_plots], custom_plots_check=check_result)
+
+  def testAucPlotsWithUncertainty(self):
+    self.num_bootstrap_samples = 3
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_estimator.simple_fixed_prediction_estimator(
+            None, temp_eval_export_dir))
+    examples = [
+        self._makeExample(prediction=0.0000, label=0.0000),
+        self._makeExample(prediction=0.0000, label=1.0000),
+        self._makeExample(prediction=0.7000, label=1.0000),
+        self._makeExample(prediction=0.8000, label=0.0000),
+        self._makeExample(prediction=1.0000, label=1.0000),
+    ]
+
+    auc_plots = post_export_metrics.auc_plots()
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertIn(full_key(metric_keys.AUC_PLOTS_MATRICES), value)
+        matrices = value[full_key(metric_keys.AUC_PLOTS_MATRICES)]
+        #            |      | --------- Threshold -----------
+        # true label | pred | -1e-6 | 0.0 | 0.7 | 0.8 | 1.0
+        #     -      | 0.0  | FP    | TN  | TN  | TN  | TN
+        #     +      | 0.0  | TP    | FN  | FN  | FN  | FN
+        #     +      | 0.7  | TP    | TP  | FN  | FN  | FN
+        #     -      | 0.8  | FP    | FP  | FP  | TN  | TN
+        #     +      | 1.0  | TP    | TP  | TP  | TP  | FN
+        self.assertSequenceAlmostEqual([matrix.value for matrix in matrices[0]],
+                                       [0, 0, 2, 3, 3.0 / 5.0, 1.0])
+        self.assertSequenceAlmostEqual([matrix.value for matrix in matrices[1]],
+                                       [1, 1, 1, 2, 2.0 / 3.0, 2.0 / 3.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[7001]],
+            [2, 1, 1, 1, 1.0 / 2.0, 1.0 / 3.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[8001]],
+            [2, 2, 0, 1, 1.0 / 1.0, 1.0 / 3.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[10001]],
+            [3, 2, 0, 0, float('nan'), 0.0])
+        self.assertIn(full_key(metric_keys.AUC_PLOTS_THRESHOLDS), value)
+        thresholds = value[full_key(metric_keys.AUC_PLOTS_THRESHOLDS)]
+        self.assertAlmostEqual(0.0, thresholds[1].value)
+        self.assertAlmostEqual(0.001, thresholds[11].value)
+        self.assertAlmostEqual(0.005, thresholds[51].value)
+        self.assertAlmostEqual(0.010, thresholds[101].value)
+        self.assertAlmostEqual(0.100, thresholds[1001].value)
+        self.assertAlmostEqual(0.800, thresholds[8001].value)
+        self.assertAlmostEqual(1.000, thresholds[10001].value)
+        plot_data = metrics_for_slice_pb2.PlotData()
+        auc_plots.populate_plots_and_pop(value, plot_data)
+        self.assertProtoEquals(
+            """threshold: 1.0
+            false_negatives: 3.0
+            true_negatives: 2.0
+            false_positives: 0.0
+            true_positives: 0.0
+            precision: nan
+            recall: 0.0
+            bounded_false_negatives {
+              lower_bound {
+                value: 3.0
+              }
+              upper_bound {
+                value: 3.0
+              }
+              value {
+                value: 3.0
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+            bounded_true_negatives {
+              lower_bound {
+                value: 2.0
+              }
+              upper_bound {
+                value: 2.0
+              }
+              value {
+                value: 2.0
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+            bounded_false_positives {
+              lower_bound {
+              }
+              upper_bound {
+              }
+              value {
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+            bounded_true_positives {
+              lower_bound {
+              }
+              upper_bound {
+              }
+              value {
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+            bounded_precision {
+              lower_bound {
+                value: nan
+              }
+              upper_bound {
+                value: nan
+              }
+              value {
+                value: nan
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+            bounded_recall {
+              lower_bound {
+              }
+              upper_bound {
+              }
+              value {
+              }
+              methodology: POISSON_BOOTSTRAP
+            }""", plot_data.confusion_matrix_at_thresholds.matrices[10001])
       except AssertionError as err:
         raise util.BeamAssertException(err)
 
@@ -869,6 +1306,61 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
         ],
         custom_metrics_check=check_result)
 
+  def testConfusionMatrixAtThresholdsWeightedUncertainty(self):
+    self.num_bootstrap_samples = 10
+    temp_eval_export_dir = self._getEvalExportDir()
+    _, eval_export_dir = (
+        fixed_prediction_estimator_extra_fields
+        .simple_fixed_prediction_estimator_extra_fields(None,
+                                                        temp_eval_export_dir))
+    examples = self.makeConfusionMatrixExamples()
+
+    def check_result(got):  # pylint: disable=invalid-name
+      try:
+        self.assertEqual(1, len(got), 'got: %s' % got)
+        (slice_key, value) = got[0]
+        self.assertEqual((), slice_key)
+        self.assertIn(
+            full_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_MATRICES),
+            value)
+        matrices = value[full_key(
+            metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_MATRICES)]
+        self.assertSequenceAlmostEqual([matrix.value for matrix in matrices[0]],
+                                       [0.0, 0.0, 3.0, 7.0, 7.0 / 10.0, 1.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[1]],
+            [1.0, 1.0, 2.0, 6.0, 6.0 / 8.0, 6.0 / 7.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[2]],
+            [4.0, 1.0, 2.0, 3.0, 3.0 / 5.0, 3.0 / 7.0])
+        self.assertSequenceAlmostEqual([matrix.value for matrix in matrices[3]],
+                                       [4.0, 3.0, 0.0, 3.0, 1.0, 3.0 / 7.0])
+        self.assertSequenceAlmostEqual(
+            [matrix.value for matrix in matrices[4]],
+            [7.0, 3.0, 0.0, 0.0, float('nan'), 0.0])
+        self.assertIn(
+            full_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS),
+            value)
+        thresholds = value[full_key(
+            metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS)]
+        self.assertAlmostEqual(-1e-6, thresholds[0].value)
+        self.assertAlmostEqual(0.0, thresholds[1].value)
+        self.assertAlmostEqual(0.7, thresholds[2].value, places=5)
+        self.assertAlmostEqual(0.8, thresholds[3].value)
+        self.assertAlmostEqual(1.0, thresholds[4].value)
+        # Test serialization!
+      except AssertionError as err:
+        raise util.BeamAssertException(err)
+
+    self._runTestWithCustomCheck(
+        examples,
+        eval_export_dir, [
+            post_export_metrics.confusion_matrix_at_thresholds(
+                example_weight_key='fixed_float',
+                thresholds=[-1e-6, 0.0, 0.7, 0.8, 1.0])
+        ],
+        custom_metrics_check=check_result)
+
 
   def testConfusionMatrixAtThresholdsSerialization(self):
     temp_eval_export_dir = self._getEvalExportDir()
@@ -933,6 +1425,36 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
                 true_positives: 2.0
                 precision: 1.0
                 recall: 1.0
+                bounded_false_negatives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 2.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 1.0
+                  }
+                }
               }
               matrices {
                 threshold: 0.75
@@ -942,6 +1464,36 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
                 true_positives: 1.0
                 precision: 1.0
                 recall: 0.5
+                bounded_false_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 0.5
+                  }
+                }
               }
               matrices {
                 threshold: 1.00
@@ -951,6 +1503,36 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
                 true_positives: 0.0
                 precision: nan
                 recall: 0.0
+                bounded_false_negatives {
+                  value {
+                    value: 2.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: nan
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 0.0
+                  }
+                }
               }
             }
             """, output_metrics[full_key(
@@ -1396,6 +1978,34 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
           false_negatives: 0.0
           precision: 0.5
           recall: 1.0
+          bounded_false_negatives {
+            value {
+            }
+          }
+          bounded_true_negatives {
+            value {
+            }
+          }
+          bounded_false_positives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_true_positives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_precision {
+            value {
+              value: 0.5
+            }
+          }
+          bounded_recall {
+            value {
+              value: 1.0
+            }
+          }
         }
       }
       confusion_matrix_at_thresholds {
@@ -1407,6 +2017,34 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
           false_negatives: 0.0
           precision: 0.5
           recall: 1.0
+          bounded_false_negatives {
+            value {
+            }
+          }
+          bounded_true_negatives {
+            value {
+            }
+          }
+          bounded_false_positives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_true_positives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_precision {
+            value {
+              value: 0.5
+            }
+          }
+          bounded_recall {
+            value {
+              value: 1.0
+            }
+          }
         }
       }
       confusion_matrix_at_thresholds {
@@ -1418,6 +2056,32 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
           false_negatives: 1.0
           precision: 0.0
           recall: 0.0
+          bounded_false_negatives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_true_negatives {
+            value {
+            }
+          }
+          bounded_false_positives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_true_positives {
+            value {
+            }
+          }
+          bounded_precision {
+            value {
+            }
+          }
+          bounded_recall {
+            value {
+            }
+          }
         }
       }
       confusion_matrix_at_thresholds {
@@ -1429,8 +2093,34 @@ class PostExportMetricsTest(testutil.TensorflowModelAnalysisTest):
           false_negatives: 1.0
           precision: 0.0
           recall: 0.0
-        }
-      }
+          bounded_false_negatives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_true_negatives {
+            value {
+              value: 1.0
+            }
+          }
+          bounded_false_positives {
+            value {
+            }
+          }
+          bounded_true_positives {
+            value {
+            }
+          }
+          bounded_precision {
+            value {
+            }
+          }
+          bounded_recall {
+            value {
+            }
+          }
+       }
+     }
     """
     plot_data = metrics_for_slice_pb2.PlotData()
     auc_plots = post_export_metrics.auc_plots()

@@ -26,6 +26,7 @@ import apache_beam as beam
 from apache_beam.testing import util
 import numpy as np
 import tensorflow as tf
+from tensorflow_model_analysis import types
 from tensorflow_model_analysis.api import model_eval_lib
 from tensorflow_model_analysis.api import tfma_unit
 from tensorflow_model_analysis.eval_saved_model import testutil
@@ -162,6 +163,244 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
         expected_plot_data,
         metrics_for_slice_pb2.PlotsForSlice.FromString(serialized))
 
+  def testSerializeConfusionMatrices(self):
+    slice_key = _make_slice_key()
+
+    thresholds = [0.25, 0.75, 1.00]
+    matrices = [[0.0, 1.0, 0.0, 2.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0, 1.0, 0.5],
+                [2.0, 1.0, 0.0, 0.0, float('nan'), 0.0]]
+
+    slice_metrics = {
+        _full_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_MATRICES):
+            matrices,
+        _full_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_THRESHOLDS):
+            thresholds,
+    }
+    expected_metrics_for_slice = text_format.Parse(
+        """
+        slice_key {}
+        metrics {
+          key: "post_export_metrics/confusion_matrix_at_thresholds"
+          value {
+            confusion_matrix_at_thresholds {
+              matrices {
+                threshold: 0.25
+                false_negatives: 0.0
+                true_negatives: 1.0
+                false_positives: 0.0
+                true_positives: 2.0
+                precision: 1.0
+                recall: 1.0
+                bounded_false_negatives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 2.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 1.0
+                  }
+                }
+              }
+              matrices {
+                threshold: 0.75
+                false_negatives: 1.0
+                true_negatives: 1.0
+                false_positives: 0.0
+                true_positives: 1.0
+                precision: 1.0
+                recall: 0.5
+                bounded_false_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 0.5
+                  }
+                }
+              }
+              matrices {
+                threshold: 1.00
+                false_negatives: 2.0
+                true_negatives: 1.0
+                false_positives: 0.0
+                true_positives: 0.0
+                precision: nan
+                recall: 0.0
+                bounded_false_negatives {
+                  value {
+                    value: 2.0
+                  }
+                }
+                bounded_true_negatives {
+                  value {
+                    value: 1.0
+                  }
+                }
+                bounded_true_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_false_positives {
+                  value {
+                    value: 0.0
+                  }
+                }
+                bounded_precision {
+                  value {
+                    value: nan
+                  }
+                }
+                bounded_recall {
+                  value {
+                    value: 0.0
+                  }
+                }
+              }
+            }
+          }
+        }
+        """, metrics_for_slice_pb2.MetricsForSlice())
+
+    got = metrics_and_plots_evaluator._serialize_metrics(
+        (slice_key, slice_metrics),
+        [post_export_metrics.confusion_matrix_at_thresholds(thresholds)])
+    self.assertProtoEquals(
+        expected_metrics_for_slice,
+        metrics_for_slice_pb2.MetricsForSlice.FromString(got))
+
+  def testSerializeMetricsRanges(self):
+    slice_key = _make_slice_key('age', 5, 'language', 'english', 'price', 0.3)
+    slice_metrics = {
+        'accuracy': types.ValueWithConfidenceInterval(0.8, 0.7, 0.9),
+        _full_key(metric_keys.AUPRC): 0.1,
+        _full_key(metric_keys.lower_bound(metric_keys.AUPRC)): 0.05,
+        _full_key(metric_keys.upper_bound(metric_keys.AUPRC)): 0.17,
+        _full_key(metric_keys.AUC): 0.2,
+        _full_key(metric_keys.lower_bound(metric_keys.AUC)): 0.1,
+        _full_key(metric_keys.upper_bound(metric_keys.AUC)): 0.3
+    }
+    expected_metrics_for_slice = text_format.Parse(
+        string.Template("""
+        slice_key {
+          single_slice_keys {
+            column: 'age'
+            int64_value: 5
+          }
+          single_slice_keys {
+            column: 'language'
+            bytes_value: 'english'
+          }
+          single_slice_keys {
+            column: 'price'
+            float_value: 0.3
+          }
+        }
+        metrics {
+          key: "accuracy"
+          value {
+            bounded_value {
+              value {
+                value: 0.8
+              }
+              lower_bound {
+                value: 0.7
+              }
+              upper_bound {
+                value: 0.9
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+          }
+        }
+        metrics {
+          key: "$auc"
+          value {
+            bounded_value {
+              lower_bound {
+                value: 0.1
+              }
+              upper_bound {
+                value: 0.3
+              }
+              value {
+                value: 0.2
+              }
+              methodology: RIEMANN_SUM
+            }
+          }
+        }
+        metrics {
+          key: "$auprc"
+          value {
+            bounded_value {
+              lower_bound {
+                value: 0.05
+              }
+              upper_bound {
+                value: 0.17
+              }
+              value {
+                value: 0.1
+              }
+              methodology: RIEMANN_SUM
+            }
+          }
+        }""").substitute(
+            auc=_full_key(metric_keys.AUC), auprc=_full_key(metric_keys.AUPRC)),
+        metrics_for_slice_pb2.MetricsForSlice())
+
+    got = metrics_and_plots_evaluator._serialize_metrics(
+        (slice_key, slice_metrics),
+        [post_export_metrics.auc(),
+         post_export_metrics.auc(curve='PR')])
+    self.assertProtoEquals(
+        expected_metrics_for_slice,
+        metrics_for_slice_pb2.MetricsForSlice.FromString(got))
+
   def testSerializeMetrics(self):
     slice_key = _make_slice_key('age', 5, 'language', 'english', 'price', 0.3)
     slice_metrics = {
@@ -258,6 +497,59 @@ class EvaluateMetricsAndPlotsTest(testutil.TensorflowModelAnalysisTest):
     expected_metrics_for_slice.metrics[
         'invalid_unicode'].bytes_value = slice_metrics['invalid_unicode']
 
+    got = metrics_and_plots_evaluator._serialize_metrics(
+        (slice_key, slice_metrics), [])
+    self.assertProtoEquals(
+        expected_metrics_for_slice,
+        metrics_for_slice_pb2.MetricsForSlice.FromString(got))
+
+  def testUncertaintyValuedMetrics(self):
+    slice_key = _make_slice_key()
+    slice_metrics = {
+        'one_dim':
+            types.ValueWithConfidenceInterval(2.0, 1.0, 3.0),
+        'nans':
+            types.ValueWithConfidenceInterval(
+                float('nan'), float('nan'), float('nan')),
+    }
+    expected_metrics_for_slice = text_format.Parse(
+        """
+        slice_key {}
+        metrics {
+          key: "one_dim"
+          value {
+            bounded_value {
+              value {
+                value: 2.0
+              }
+              lower_bound {
+                value: 1.0
+              }
+              upper_bound {
+                value: 3.0
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+          }
+        }
+        metrics {
+          key: "nans"
+          value {
+            bounded_value {
+              value {
+                value: nan
+              }
+              lower_bound {
+                value: nan
+              }
+              upper_bound {
+                value: nan
+              }
+              methodology: POISSON_BOOTSTRAP
+            }
+          }
+        }
+        """, metrics_for_slice_pb2.MetricsForSlice())
     got = metrics_and_plots_evaluator._serialize_metrics(
         (slice_key, slice_metrics), [])
     self.assertProtoEquals(

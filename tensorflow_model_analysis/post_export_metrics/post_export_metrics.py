@@ -144,6 +144,10 @@ def _check_weight_present(features_dict,
         'features were: %s' % (example_weight_key, features_dict.keys()))
 
 
+def _prepend_default_string(base_key):
+  return metric_keys.add_metric_prefix(base_key, metric_keys.NAME_PREFIX)
+
+
 def _populate_to_auc_bounded_value_and_pop(
     combined_metrics,
     output_metrics,
@@ -162,16 +166,28 @@ def _populate_to_auc_bounded_value_and_pop(
     output_metrics: The dict where we convert the metrics to.
     metric_key: The key in the dict `metircs` for extracting the metric value.
   """
-  output_metrics[
-      metric_key].bounded_value.lower_bound.value = combined_metrics.pop(
-          metric_keys.lower_bound(metric_key))
-  output_metrics[
-      metric_key].bounded_value.upper_bound.value = combined_metrics.pop(
-          metric_keys.upper_bound(metric_key))
-  output_metrics[metric_key].bounded_value.value.value = combined_metrics.pop(
-      metric_key)
-  output_metrics[metric_key].bounded_value.methodology = (
-      metrics_pb2.BoundedValue.RIEMANN_SUM)
+  riemann_sum_lower_bound = combined_metrics.pop(
+      _prepend_default_string(metric_keys.lower_bound(metric_key)))
+  if isinstance(riemann_sum_lower_bound, types.ValueWithConfidenceInterval):
+    riemann_sum_lower_bound = riemann_sum_lower_bound.unsampled_value
+  output_metrics[_prepend_default_string(
+      metric_key)].bounded_value.lower_bound.value = riemann_sum_lower_bound
+  riemann_sum_upper_bound = combined_metrics.pop(
+      _prepend_default_string(metric_keys.upper_bound(metric_key)))
+  if isinstance(riemann_sum_upper_bound, types.ValueWithConfidenceInterval):
+    riemann_sum_upper_bound = riemann_sum_upper_bound.unsampled_value
+  output_metrics[_prepend_default_string(
+      metric_key)].bounded_value.upper_bound.value = riemann_sum_upper_bound
+  output_metrics[_prepend_default_string(
+      metric_key)].bounded_value.methodology = (
+          metrics_pb2.BoundedValue.RIEMANN_SUM)
+
+  value = combined_metrics.pop(_prepend_default_string(metric_key))
+  if isinstance(value, types.ValueWithConfidenceInterval):
+    # Currently taking the computed mean value, conserving legacy functionality.
+    value = value.value
+  output_metrics[_prepend_default_string(
+      metric_key)].bounded_value.value.value = value
 
 
 class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
@@ -198,12 +214,10 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
     self._tensor_index = tensor_index
     self._labels_key = labels_key
     if target_prediction_keys:
-      tf.logging.info(target_prediction_keys)
       self._metric_tag = target_prediction_keys[0]
     if metric_tag:
       # Specified metric tag takes priority over target_prediction_key if
       # defined.
-      tf.logging.info(metric_tag)
       self._metric_tag = metric_tag
 
   def _select_class(self, predictions_tensor, labels_tensor):
@@ -288,7 +302,7 @@ class _PostExportMetric(with_metaclass(abc.ABCMeta, object)):
     if self._metric_tag:
       tagged_key = metric_keys.add_metric_prefix(base_key, self._metric_tag)
     if add_prefix:
-      return metric_keys.add_metric_prefix(tagged_key, metric_keys.NAME_PREFIX)
+      return _prepend_default_string(tagged_key)
     return tagged_key
 
   @abc.abstractmethod
@@ -436,6 +450,22 @@ class _ExampleCount(_PostExportMetric):
             metrics.total(tf.shape(ref_tensor)[0])
     }
 
+  def populate_stats_and_pop(
+      self, combine_metrics,
+      output_metrics):
+    count_result = combine_metrics.pop(
+        self._metric_key(metric_keys.EXAMPLE_COUNT_BASE))
+    if isinstance(count_result, types.ValueWithConfidenceInterval):
+      # We do not want to display confidence interval bounds on known
+      # quantities such as ExampleCount, so we use the calculated value
+      # without sampling.
+      output_metrics[self._metric_key(
+          metric_keys.EXAMPLE_COUNT_BASE)].double_value.value = (
+              count_result.unsampled_value)
+    else:
+      output_metrics[self._metric_key(
+          metric_keys.EXAMPLE_COUNT_BASE)].double_value.value = count_result
+
 
 @_export('example_weight')
 class _ExampleWeight(_PostExportMetric):
@@ -472,6 +502,22 @@ class _ExampleWeight(_PostExportMetric):
     return {
         self._metric_key(metric_keys.EXAMPLE_WEIGHT_BASE): metrics.total(value)
     }
+
+  def populate_stats_and_pop(
+      self, combine_metrics,
+      output_metrics):
+    weight_result = combine_metrics.pop(
+        self._metric_key(metric_keys.EXAMPLE_WEIGHT_BASE))
+    if isinstance(weight_result, types.ValueWithConfidenceInterval):
+      # We do not want to display confidence interval bounds on known
+      # quantities such as ExampleWeight, so we use the calculated value
+      # without sampling.
+      output_metrics[self._metric_key(
+          metric_keys.EXAMPLE_WEIGHT_BASE)].double_value.value = (
+              weight_result.unsampled_value)
+    else:
+      output_metrics[self._metric_key(
+          metric_keys.EXAMPLE_WEIGHT_BASE)].double_value.value = weight_result
 
 
 _DEFAULT_NUM_BUCKETS = 10000
@@ -580,6 +626,16 @@ class _CalibrationPlotAndPredictionHistogram(_PostExportMetric):
         matrices, [float('-inf')] + list(boundaries),
         list(boundaries) + [float('inf')]):
       total_pred, total_label, total_weight = matrix_row
+      if isinstance(lower_threshold, types.ValueWithConfidenceInterval):
+        lower_threshold = lower_threshold.unsampled_value
+      if isinstance(upper_threshold, types.ValueWithConfidenceInterval):
+        upper_threshold = upper_threshold.unsampled_value
+      if isinstance(total_weight, types.ValueWithConfidenceInterval):
+        total_weight = total_weight.unsampled_value
+      if isinstance(total_pred, types.ValueWithConfidenceInterval):
+        total_pred = total_pred.unsampled_value
+      if isinstance(total_label, types.ValueWithConfidenceInterval):
+        total_label = total_label.unsampled_value
       output_plots.calibration_histogram_buckets.buckets.add(
           lower_threshold_inclusive=lower_threshold,
           upper_threshold_exclusive=upper_threshold,
@@ -773,6 +829,31 @@ class _ConfusionMatrixBasedMetric(_PostExportMetric):
     return (values, update_ops)  # pytype: disable=bad-return-type
 
 
+def _set_output_matrix_field(matrix_entry, output_matrix, field_name):
+  """Sets bounded and double values for a component of a confusion matrix.
+
+  This is a convenience function to handle setting both value types in the
+  confusion matrix proto. We want to migrate to using just the bounded value
+  in the UI and analysis, but for some time will be needing to populate both.
+  This also handles both scalar values and ValuesWithConfidenceInterval.
+
+  Args:
+    matrix_entry: The original value from the metric ops.
+    output_matrix: The ConfusionMatrixAtThreshold proto to populate.
+    field_name: The name of the double_value field to set.
+  """
+  bounded_value = getattr(output_matrix, 'bounded_%s' % field_name)
+  if isinstance(matrix_entry, types.ValueWithConfidenceInterval):
+    bounded_value.value.value = matrix_entry.value
+    bounded_value.lower_bound.value = matrix_entry.lower_bound
+    bounded_value.upper_bound.value = matrix_entry.upper_bound
+    bounded_value.methodology = metrics_pb2.BoundedValue.POISSON_BOOTSTRAP
+    setattr(output_matrix, field_name, matrix_entry[0])
+  else:
+    bounded_value.value.value = matrix_entry
+    setattr(output_matrix, field_name, matrix_entry)
+
+
 def _create_confusion_matrix_proto(
     matrix, threshold
 ):
@@ -780,13 +861,12 @@ def _create_confusion_matrix_proto(
   output_matrix = (
       metrics_pb2.ConfusionMatrixAtThresholds.ConfusionMatrixAtThreshold())
   output_matrix.threshold = threshold
-  output_matrix.false_negatives = matrix[0]
-  output_matrix.true_negatives = matrix[1]
-  output_matrix.false_positives = matrix[2]
-  output_matrix.true_positives = matrix[3]
-  # +inf, -inf, and NaNs will all get stored correctly.
-  output_matrix.precision = matrix[4]
-  output_matrix.recall = matrix[5]
+  _set_output_matrix_field(matrix[0], output_matrix, 'false_negatives')
+  _set_output_matrix_field(matrix[1], output_matrix, 'true_negatives')
+  _set_output_matrix_field(matrix[2], output_matrix, 'false_positives')
+  _set_output_matrix_field(matrix[3], output_matrix, 'true_positives')
+  _set_output_matrix_field(matrix[4], output_matrix, 'precision')
+  _set_output_matrix_field(matrix[5], output_matrix, 'recall')
   return output_matrix
 
 
@@ -802,6 +882,7 @@ class _ConfusionMatrixAtThresholds(_ConfusionMatrixBasedMetric):
         features_dict, predictions_dict, labels_dict)
     # The format and lint tools don't agree on the formatting here.
     # pyformat: disable
+
     return {
         self._metric_key(metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS_MATRICES): (
             value_op, update_op),
@@ -826,6 +907,8 @@ class _ConfusionMatrixAtThresholds(_ConfusionMatrixBasedMetric):
                                                   len(thresholds)))
 
     for threshold, matrix in zip(thresholds, matrices):
+      if isinstance(threshold, types.ValueWithConfidenceInterval):
+        threshold = threshold.unsampled_value
       (output_metrics[self._metric_key(
           metric_keys.CONFUSION_MATRIX_AT_THRESHOLDS)]
        .confusion_matrix_at_thresholds.matrices.add().CopyFrom(
@@ -907,10 +990,10 @@ class _AucPlots(_ConfusionMatrixBasedMetric):
                                                                len(thresholds)))
     for matrix_row, threshold in zip(matrices, list(thresholds)):
       matrix = output_plots.confusion_matrix_at_thresholds.matrices.add()
+      if isinstance(threshold, types.ValueWithConfidenceInterval):
+        threshold = threshold.unsampled_value
       matrix.threshold = threshold
-      # The column indices need to match _confusion_matrix_metric_ops output.
-      (matrix.false_negatives, matrix.true_negatives, matrix.false_positives,
-       matrix.true_positives, matrix.precision, matrix.recall) = matrix_row
+      matrix.CopyFrom(_create_confusion_matrix_proto(matrix_row, threshold))
 
 
 @_export('auc')
@@ -1042,8 +1125,9 @@ class _Auc(_PostExportMetric):
   def populate_stats_and_pop(
       self, combine_metrics,
       output_metrics):
-    _populate_to_auc_bounded_value_and_pop(combine_metrics, output_metrics,
-                                           self._metric_key(self._metric_name))
+    _populate_to_auc_bounded_value_and_pop(
+        combine_metrics, output_metrics,
+        self._metric_key(self._metric_name, False))
 
 
 @_export('precision_recall_at_k')
@@ -1164,12 +1248,28 @@ class _PrecisionRecallAtK(_PostExportMetric):
     recall_column = table[:, 2]
     for cutoff, precision, recall in zip(cutoff_column, precision_column,
                                          recall_column):
+      if isinstance(cutoff, types.ValueWithConfidenceInterval):
+        cutoff = cutoff.unsampled_value
       row = output_metrics[self._metric_key(
           metric_keys.PRECISION_AT_K)].value_at_cutoffs.values.add()
       row.cutoff = int(cutoff)
-      row.value = precision
+      if isinstance(precision, types.ValueWithConfidenceInterval):
+        row.value = precision.value
+        row.bounded_value.value.value = precision.value
+        row.bounded_value.upper_bound.value = precision.upper_bound
+        row.bounded_value.lower_bound.value = precision.lower_bound
+      else:
+        row.value = precision
+        row.bounded_value.value.value = precision
 
       row = output_metrics[self._metric_key(
           metric_keys.RECALL_AT_K)].value_at_cutoffs.values.add()
       row.cutoff = int(cutoff)
-      row.value = recall
+      if isinstance(recall, types.ValueWithConfidenceInterval):
+        row.value = recall.value
+        row.bounded_value.value.value = recall.value
+        row.bounded_value.upper_bound.value = recall.upper_bound
+        row.bounded_value.lower_bound.value = recall.lower_bound
+      else:
+        row.value = recall
+        row.bounded_value.value.value = recall

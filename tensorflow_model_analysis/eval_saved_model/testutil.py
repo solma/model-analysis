@@ -94,6 +94,7 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
                                 got_seq,
                                 expected_seq,
                                 places = 5,
+                                delta = 0,
                                 msg_prefix=''):
     got = list(got_seq)
     expected = list(expected_seq)
@@ -105,7 +106,10 @@ class TensorflowModelAnalysisTest(tf.test.TestCase):
       if math.isnan(a) or math.isnan(b):
         self.assertEqual(math.isnan(a), math.isnan(b), msg=msg)
       else:
-        self.assertAlmostEqual(a, b, msg=msg, places=places)
+        if delta:
+          self.assertAlmostEqual(a, b, msg=msg, delta=delta)
+        else:
+          self.assertAlmostEqual(a, b, msg=msg, places=places)
 
   def assertSparseTensorValueEqual(
       self, expected_sparse_tensor_value,

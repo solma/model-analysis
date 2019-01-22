@@ -129,7 +129,16 @@ def _convert_slice_metrics(
                                                 metrics_for_slice.metrics)
 
   for name, value in slice_metrics.items():
-    if isinstance(value, (six.binary_type, six.text_type)):
+    if isinstance(value, types.ValueWithConfidenceInterval):
+      # Convert to a bounded value.
+      metrics_for_slice.metrics[name].bounded_value.value.value = value.value
+      metrics_for_slice.metrics[
+          name].bounded_value.lower_bound.value = value.lower_bound
+      metrics_for_slice.metrics[
+          name].bounded_value.upper_bound.value = value.upper_bound
+      metrics_for_slice.metrics[name].bounded_value.methodology = (
+          metrics_for_slice_pb2.BoundedValue.POISSON_BOOTSTRAP)
+    elif isinstance(value, (six.binary_type, six.text_type)):
       # Convert textual types to string metrics.
       metrics_for_slice.metrics[name].bytes_value = value
     elif isinstance(value, np.ndarray):
@@ -255,6 +264,8 @@ def ComputeMetricsAndPlots(  # pylint: disable=invalid-name
     extracts,
     eval_shared_model,
     desired_batch_size = None,
+    num_bootstrap_samples = 1,
+    random_seed = None,
 ):
   """Computes metrics and plots using the EvalSavedModel.
 
@@ -268,6 +279,9 @@ def ComputeMetricsAndPlots(  # pylint: disable=invalid-name
       additional metrics (see EvalSharedModel for more information on how to
       configure additional metrics).
     desired_batch_size: Optional batch size for batching in Aggregate.
+    num_bootstrap_samples: Set to value > 1 to run metrics analysis over
+      multiple bootstrap samples and compute uncertainty intervals.
+    random_seed: Provide for deterministic tests only.
 
   Returns:
     DoOutputsTuple. The tuple entries are
@@ -290,7 +304,9 @@ def ComputeMetricsAndPlots(  # pylint: disable=invalid-name
       # plots if applicable.
       | 'ComputePerSliceMetrics' >> aggregate.ComputePerSliceMetrics(
           eval_shared_model=eval_shared_model,
-          desired_batch_size=desired_batch_size))
+          desired_batch_size=desired_batch_size,
+          num_bootstrap_samples=num_bootstrap_samples,
+          random_seed=random_seed))
   # pylint: enable=no-value-for-parameter
 
 
