@@ -358,12 +358,6 @@ class _AggregateCombineFn(beam.CombineFn):
         constants.METRICS_NAMESPACE, 'model_load_seconds')
     self._num_compacts = beam.metrics.Metrics.counter(
         constants.METRICS_NAMESPACE, 'num_compacts')
-    # This keeps track of the number of times the poisson bootstrap retries
-    # when an empty set of elements is encountered. Should be extremely rare in
-    # practice, keeping this counter will help us understand if something is
-    # misbehaving.
-    self._num_bootstrap_retries = beam.metrics.Metrics.counter(
-        constants.METRICS_NAMESPACE, 'num_bootstrap_retries')
 
   def _start_bundle(self):
     # There's no initialisation method for CombineFns.
@@ -405,17 +399,9 @@ class _AggregateCombineFn(beam.CombineFn):
 
     result = []
     if accumulator.fpls:
-      while not result:
-        # It's possible that the distribution will roll zeroes for all of the
-        # examples. In this case we will retry until we have at least one
-        # element chosen. This is to avoid empty metric updates which currently
-        # aren't handled well and should not have an significant statistical
-        # impact.
-        poisson_counts = np.random.poisson(1, len(accumulator.fpls))
-        for i, fpl in enumerate(accumulator.fpls):
-          result.extend([fpl] * poisson_counts[i])
-        if not result:
-          self._num_bootstrap_retries.inc(1)
+      poisson_counts = np.random.poisson(1, len(accumulator.fpls))
+      for i, fpl in enumerate(accumulator.fpls):
+        result.extend([fpl] * poisson_counts[i])
     return result
 
   def _maybe_do_batch(self, accumulator,
@@ -446,7 +432,12 @@ class _AggregateCombineFn(beam.CombineFn):
           accumulator.add_metrics_variables(
               self._eval_metrics_graph.metrics_reset_update_get_list(
                   fpls_for_metrics))
-          del accumulator.fpls[:]
+        else:
+          # Call to metrics_reset_update_get_list does a reset prior to the
+          # metrics update, but does not handle empty updates. Explicitly
+          # calling just reset here, to make the flow clear.
+          self._eval_metrics_graph.reset_metric_variables()
+        del accumulator.fpls[:]
 
   def create_accumulator(self):
     return _AggState()
@@ -524,6 +515,12 @@ class _ExtractOutputDoFn(beam.DoFn):
     self._eval_shared_model = eval_shared_model
     self._model_load_seconds = beam.metrics.Metrics.distribution(
         constants.METRICS_NAMESPACE, 'model_load_seconds')
+    # This keeps track of the number of times the poisson bootstrap encounters
+    # an empty set of elements for a slice sample. Should be extremely rare in
+    # practice, keeping this counter will help us understand if something is
+    # misbehaving.
+    self._num_bootstrap_empties = beam.metrics.Metrics.counter(
+        constants.METRICS_NAMESPACE, 'num_bootstrap_empties')
 
   def start_bundle(self):
     # There's no initialisation method for CombineFns.
@@ -549,11 +546,16 @@ class _ExtractOutputDoFn(beam.DoFn):
     (slice_key, metric_variables) = element
     if metric_variables:
       self._eval_saved_model.set_metric_variables(metric_variables)
-    result = self._eval_saved_model.get_metric_values()
-
-    # If slice key contains uncertainty sample ID, remove it from the key.
-    if len(slice_key) and _SAMPLE_ID in slice_key[0]:
-      slice_key = slice_key[1:]
-    if len(slice_key) and not slice_key[0]:  # Overall slice.
-      slice_key = ()
-    yield (tuple(slice_key), result)
+      result = self._eval_saved_model.get_metric_values()
+      # If slice key contains uncertainty sample ID, remove it from the key.
+      if len(slice_key) and _SAMPLE_ID in slice_key[0]:
+        slice_key = slice_key[1:]
+      if len(slice_key) and not slice_key[0]:  # Overall slice.
+        slice_key = ()
+      yield (tuple(slice_key), result)
+    else:
+      # Increase a counter for empty bootstrap samples. When sampling is not
+      # enabled, this should never be exected. The slice extractor/fanout only
+      # emits slices that match examples, and if the slice matches examples, it
+      # will never be empty.
+      self._num_bootstrap_empties.inc(1)
