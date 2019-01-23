@@ -227,9 +227,8 @@ def _serialize_plots(
   return result.SerializeToString()
 
 
-# No typehint for input type, since it's a multi-output DoFn result that
+# No typehint for input or output, since it's a multi-output DoFn result that
 # Beam doesn't support typehints for yet (BEAM-3280).
-@beam.typehints.with_output_types(beam.typehints.Tuple[bytes, bytes])
 class SerializeMetricsAndPlots(beam.PTransform):  # pylint: disable=invalid-name
   """Converts metrics and plots into serialized protos."""
 
