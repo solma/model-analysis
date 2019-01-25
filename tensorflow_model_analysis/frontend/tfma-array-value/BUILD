@@ -15,7 +15,6 @@ web_library(
     ],
     path = "/tfma-array-value",
     deps = [
-        "@org_googlewebcomponents_google_chart",
         "@org_polymer",
         "@org_polymer_paper_tooltip",
     ],
