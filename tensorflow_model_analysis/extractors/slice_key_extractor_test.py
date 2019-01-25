@@ -118,16 +118,16 @@ class SliceTest(testutil.TensorflowModelAnalysisTest):
           self.assertEqual(2, len(got), 'got: %s' % got)
           expected_results = sorted([
               types.MaterializedColumn(
-                  name=constants.MATERIALIZED_SLICE_KEYS_KEY,
+                  name=constants.SLICE_KEYS_KEY,
                   value=[b'Overall', b'gender:f']),
               types.MaterializedColumn(
-                  name=constants.MATERIALIZED_SLICE_KEYS_KEY,
+                  name=constants.SLICE_KEYS_KEY,
                   value=[b'Overall', b'gender:m'])
           ])
           got_results = []
           for item in got:
-            self.assertTrue(constants.MATERIALIZED_SLICE_KEYS_KEY in item)
-            got_results.append(item[constants.MATERIALIZED_SLICE_KEYS_KEY])
+            self.assertTrue(constants.SLICE_KEYS_KEY in item)
+            got_results.append(item[constants.SLICE_KEYS_KEY])
           self.assertEqual(sorted(got_results), sorted(expected_results))
         except AssertionError as err:
           raise util.BeamAssertException(err)

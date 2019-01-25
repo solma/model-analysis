@@ -41,7 +41,7 @@ FEATURES_PREDICTIONS_LABELS_KEY = '_fpl'
 SLICE_KEY_TYPES_KEY = '_slice_key_types'
 # Human-readable slice strings that are written to the diagnostic table for
 # analysis.
-MATERIALIZED_SLICE_KEYS_KEY = 'materialized_slice_keys'
+SLICE_KEYS_KEY = 'slice_keys'
 
 # Separator used when combining multiple layers of Extracts keys into a single
 # string. Normally we would like to use '.' or '/' as a separator, but the

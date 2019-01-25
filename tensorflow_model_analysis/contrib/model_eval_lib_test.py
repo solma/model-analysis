@@ -124,7 +124,7 @@ class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
         self._assertMaterializedColumnsExist(materialized_dict, [
             'predictions__logits', 'predictions__probabilities',
             'predictions__classes', 'predictions__logistic',
-            'predictions__class_ids', constants.MATERIALIZED_SLICE_KEYS_KEY
+            'predictions__class_ids', constants.SLICE_KEYS_KEY
         ])
 
       util.assert_that(result[constants.ANALYSIS_KEY], check_result)
@@ -161,9 +161,9 @@ class BuildAnalysisTableTest(testutil.TensorflowModelAnalysisTest):
                                  if isinstance(v, types.MaterializedColumn))
         self._assertMaterializedColumns(
             materialized_dict, {
-                constants.MATERIALIZED_SLICE_KEYS_KEY:
+                constants.SLICE_KEYS_KEY:
                     types.MaterializedColumn(
-                        name=constants.MATERIALIZED_SLICE_KEYS_KEY,
+                        name=constants.SLICE_KEYS_KEY,
                         value=[
                             b'age:3.0', b'age:3',
                             b'age_X_language:3.0_X_english'

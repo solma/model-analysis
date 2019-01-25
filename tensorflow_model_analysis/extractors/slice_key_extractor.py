@@ -90,12 +90,10 @@ class _ExtractSliceKeysFn(beam.DoFn):
     element_copy[constants.SLICE_KEY_TYPES_KEY] = slices
     # Add a list of stringified slice keys to be materialized to output table.
     if self._materialize:
-      element_copy[
-          constants.MATERIALIZED_SLICE_KEYS_KEY] = types.MaterializedColumn(
-              name=constants.MATERIALIZED_SLICE_KEYS_KEY,
-              value=(list(
-                  slicer.stringify_slice_key(x).encode('utf-8')
-                  for x in slices)))
+      element_copy[constants.SLICE_KEYS_KEY] = types.MaterializedColumn(
+          name=constants.SLICE_KEYS_KEY,
+          value=(list(
+              slicer.stringify_slice_key(x).encode('utf-8') for x in slices)))
     return [element_copy]
 
 
