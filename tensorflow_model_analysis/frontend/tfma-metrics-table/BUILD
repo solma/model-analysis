@@ -16,6 +16,7 @@ web_library(
     ],
     path = "/tfma-metrics-table",
     deps = [
+        "//tensorflow_model_analysis/frontend/tfma-array-value:lib",
         "//tensorflow_model_analysis/frontend/tfma-bounded-value:lib",
         "//tensorflow_model_analysis/frontend/tfma-confusion-matrix-at-thresholds:lib",
         "//tensorflow_model_analysis/frontend/tfma-int64:lib",

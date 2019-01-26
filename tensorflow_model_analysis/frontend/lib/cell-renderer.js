@@ -139,19 +139,47 @@ const ConfusionMatrixAtThresholdsFieldNames = {
 };
 
 /**
+ * @typedef {{
+ * dataType: string,
+ * shape: !Array<number>,
+ * bytesValues: (!Array<string>|undefined),
+ * int32Values: (!Array<number>|undefined),
+ * int64Values: (!Array<string>|undefined),
+ * float32Values: (!Array<number>|undefined),
+ * float64Values: (!Array<number>|undefined),
+ * }}
+ */
+let ArrayValue;
+
+/**
  * @enum {string}
  */
 const ValueType = {
+  ARRAY_VALUE: 'arrayValue',
   BOUNDED_VALUE: 'boundedValue',
   CONFUSION_MATRIX_AT_THRESHOLDS: 'confusionMatrixAtThresholds',
   FLOAT: 'float',
-  SCALAR_IN_VALUE: 'scalarInValue',
   MULTI_CLASS_CONFUSION_MATRIX: 'MultiClassConfusionMatrix',
   RATIO_VALUE: 'ratioValue',
+  SCALAR_IN_VALUE: 'scalarInValue',
   STRING: 'string',
   VALUE_AT_CUTOFFS: 'valueAtCutoffs',
   UNKNOWN: 'unknown',
 };
+
+/**
+ * @enum {string}
+ */
+const ArrayValueFieldNames = {
+  DATA_TYPE: 'dataType',
+  SHAPE: 'shape',
+  BYTES_VALUES: 'bytesValues',
+  INT32_VALUES: 'int32Values',
+  INT64_VALUES: 'int64Values',
+  FLOAT32_VALUES: 'float32Values',
+  FLOAT64_VALUES: 'float64Values',
+};
+
 
 /**
  * @enum {string}
@@ -364,6 +392,22 @@ function renderRatioValue(value) {
   const ratio = value['ratio'];
   return isBoundedValue(ratio) ? renderBoundedValue(ratio) :
                                  renderFloat(parseFloat(ratio['value']));
+}
+
+/**
+ * @param {!ArrayValue} value
+ * @return {!TableProvider.GvizCell} A gviz cell for a bounded
+ *     value.
+ */
+function renderArrayValue(value) {
+  return {
+    'f': '<tfma-array-value ' +
+        createAttributeHtml('data', JSON.stringify(value)) +
+        '></tfma-array-value>',
+    // It does not make sense to sort by confusion matrix. Making the value of
+    // the cell always 0.
+    'v': 0,
+  };
 }
 
 /**
@@ -653,6 +697,21 @@ function isConfusionMatrixAtThresholds(value) {
                   hasMatrixDataWithConfidenceInterval(item)));
 }
 
+/**
+ * @param {(string|number|?Object)} value
+ * @return {boolean} Returns true if the given value is an array of json
+ *     representation of ArrayValue.
+ */
+function isArrayValue(value) {
+  return goog.isDef(value[ArrayValueFieldNames.SHAPE]) &&
+      goog.isDef(value[ArrayValueFieldNames.DATA_TYPE]) &&
+      (goog.isDef(value[ArrayValueFieldNames.BYTES_VALUES]) ||
+       goog.isDef(value[ArrayValueFieldNames.INT32_VALUES]) ||
+       goog.isDef(value[ArrayValueFieldNames.INT64_VALUES]) ||
+       goog.isDef(value[ArrayValueFieldNames.FLOAT32_VALUES]) ||
+       goog.isDef(value[ArrayValueFieldNames.FLOAT64_VALUES]));
+}
+
 // Registers all built-in renderers.
 registerRenderer(ValueType.FLOAT, renderFloat, goog.isNumber);
 registerRenderer(
@@ -668,6 +727,7 @@ registerRenderer(
     ValueType.CONFUSION_MATRIX_AT_THRESHOLDS, renderConfusionMatrixAtThresholds,
     isConfusionMatrixAtThresholds);
 registerRenderer(ValueType.RATIO_VALUE, renderRatioValue, isRatioValue);
+registerRenderer(ValueType.ARRAY_VALUE, renderArrayValue, isArrayValue);
 
 /**
  * A map containing all format override renderers.

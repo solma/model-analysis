@@ -247,6 +247,21 @@ testSuite({
         cell.f);
   },
 
+  testRenderValueWithArrayValue: function() {
+    const arrayValue = {
+      'shape': [2, 3],
+      'dataType': 'INT32',
+      'int32Values': [1, 2, 3, 4, 5, 6],
+    };
+    const cell = CellRenderer.renderValue(arrayValue);
+    assertEquals(0, cell.v);
+    assertEquals(
+        '<tfma-array-value data="' +
+            googString.htmlEscape(JSON.stringify(arrayValue)) +
+            '"></tfma-array-value>',
+        cell.f);
+  },
+
   testRenderValueWithUnsupported: function() {
     const unsupported = {foo: 1, bar: 'baz'};
     const cell = CellRenderer.renderValue(unsupported);
